@@ -471,12 +471,18 @@ STRICT RULES:
                         ))
                         time.sleep(3.0)
                         continue
-                    self.last_diagnostic_message = f"transport error: {type(e).__name__}"
-                    logging.warning(_scrub_log_message(f"Gemini API ({model_name}) error: {type(e).__name__}"))
-                return None
+                if attempt == max_attempts and openai_key:
+                    logging.info(_scrub_log_message("Gemini API attempts exhausted; automatically falling back to OpenAI API..."))
+                    break
+                elif attempt == max_attempts:
+                    return None
 
         if openai_key:
-            model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+            env_model = os.environ.get("LLM_MODEL", "")
+            if not env_model or "gemini" in env_model.lower():
+                model = "gpt-4o-mini"
+            else:
+                model = env_model
             url = "https://api.openai.com/v1/chat/completions"
             headers = {
                 "Authorization": f"Bearer {openai_key}",
