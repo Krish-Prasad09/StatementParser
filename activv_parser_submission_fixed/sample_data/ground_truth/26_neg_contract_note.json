@@ -1,0 +1,9 @@
+{
+ "file": "edge_cases/26_neg_contract_note.pdf",
+ "format_id": "none",
+ "scenario": "single-trade contract note, not a periodic statement",
+ "expected_status": "not_a_statement",
+ "expected_issues": [],
+ "notes": "",
+ "statements": []
+}

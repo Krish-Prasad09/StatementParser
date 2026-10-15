@@ -1,0 +1,158 @@
+{
+  "file": "pms/10_aurum_v2_layout_drift.pdf",
+  "format_id": "aurum_pms_monthly_v2",
+  "status": "needs_review",
+  "issues": [
+    "layout_drift_known_provider"
+  ],
+  "statements": [
+    {
+      "statement": {
+        "provider": "Aurum Capital PMS",
+        "strategy": "Aurum Multicap Growth",
+        "client_id": "AUR-100201",
+        "client_name": "",
+        "pan": "SAMPL1001A",
+        "period_start": "2026-08-01",
+        "period_end": "2026-08-31",
+        "currency": "INR"
+      },
+      "summary": {
+        "opening": 4300000.0,
+        "inflow": 0.0,
+        "outflow": 0.0,
+        "gain": 85825.0,
+        "fee": 12500.0,
+        "cash": 132000.0,
+        "closing": 4373325.0,
+        "mgmt_fee": null,
+        "perf_fee": null,
+        "units": null,
+        "nav_per_unit": null,
+        "missing_columns": [],
+        "cash_from_summary": 132000.0,
+        "cash_from_row": 132000.0
+      },
+      "holdings": [
+        {
+          "name": "Maruti Suzuki India Limited",
+          "isin": "INE585B01010",
+          "quantity": 85.0,
+          "market_value": 959692.5,
+          "weight_pct": 21.94,
+          "price": 11290.5,
+          "avg_cost": 9177.5,
+          "total_cost": 780087.5,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Axis Bank Limited",
+          "isin": "INE238A01034",
+          "quantity": 675.0,
+          "market_value": 736762.5,
+          "weight_pct": 16.85,
+          "price": 1091.5,
+          "avg_cost": 792.5,
+          "total_cost": 534937.5,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "PI Industries Limited",
+          "isin": "INE603J01030",
+          "quantity": 200.0,
+          "market_value": 717900.0,
+          "weight_pct": 16.42,
+          "price": 3589.5,
+          "avg_cost": 2720.0,
+          "total_cost": 544000.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Cholamandalam Investment and Finance Company Limited",
+          "isin": "INE121A01024",
+          "quantity": 485.0,
+          "market_value": 690640.0,
+          "weight_pct": 15.79,
+          "price": 1424.0,
+          "avg_cost": 1311.0,
+          "total_cost": 635835.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "ICICI Bank Limited",
+          "isin": "INE090A01021",
+          "quantity": 505.0,
+          "market_value": 633522.5,
+          "weight_pct": 14.49,
+          "price": 1254.5,
+          "avg_cost": 967.5,
+          "total_cost": 488587.5,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "UltraTech Cement Limited",
+          "isin": "INE481G01011",
+          "quantity": 45.0,
+          "market_value": 502807.5,
+          "weight_pct": 11.5,
+          "price": 11173.5,
+          "avg_cost": 8971.0,
+          "total_cost": 403695.0,
+          "side": null,
+          "instrument": null
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2026-08-07",
+          "type": "buy",
+          "raw_type": "Purchase",
+          "security": "ICICI Bank Limited",
+          "isin": "INE090A01021",
+          "quantity": 115.0,
+          "price": 1254.5,
+          "amount": 144267.5
+        },
+        {
+          "date": "2026-08-12",
+          "type": "buy",
+          "raw_type": "Purchase",
+          "security": "UltraTech Cement Limited",
+          "isin": "INE481G01011",
+          "quantity": 145.0,
+          "price": 11173.5,
+          "amount": 1620157.5
+        },
+        {
+          "date": "2026-08-24",
+          "type": "dividend",
+          "raw_type": "Dividend",
+          "security": "Cholamandalam Investment and Finance Company Limited",
+          "isin": "INE121A01024",
+          "quantity": null,
+          "price": null,
+          "amount": 4700.0
+        },
+        {
+          "date": "2026-08-31",
+          "type": "fee",
+          "raw_type": "Fee",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 12500.0
+        }
+      ]
+    }
+  ],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "396be33d7acdd673aeeb5c808dc0fc6cf5946821bb35fd16edac38f0543feb56"
+}

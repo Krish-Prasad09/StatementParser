@@ -1,0 +1,103 @@
+{
+  "file": "unseen/27_meridian_unseen_M1.pdf",
+  "format_id": "meridian_wealth_pms_ruled_table",
+  "status": "validated",
+  "issues": [],
+  "statements": [
+    {
+      "statement": {
+        "provider": "Meridian Wealth PMS",
+        "strategy": "Meridian Alpha Compounder",
+        "client_id": "MRD-8001",
+        "client_name": "Vikram Malhotra",
+        "pan": "SAMPL8001Q",
+        "period_start": "2026-09-01",
+        "period_end": "2026-09-30",
+        "currency": "INR"
+      },
+      "summary": {
+        "opening": 1800000.0,
+        "inflow": 100000.0,
+        "outflow": 0.0,
+        "gain": 105000.0,
+        "fee": 5000.0,
+        "cash": 100000.0,
+        "closing": 2000000.0
+      },
+      "holdings": [
+        {
+          "name": "Infosys Limited",
+          "isin": "INE009A01021",
+          "quantity": 500.0,
+          "avg_cost": 1600.0,
+          "price": 1800.0,
+          "market_value": 900000.0,
+          "weight_pct": 45.0,
+          "total_cost": 800000.0
+        },
+        {
+          "name": "ICICI Bank Limited",
+          "isin": "INE090A01021",
+          "quantity": 600.0,
+          "avg_cost": 1100.0,
+          "price": 1250.0,
+          "market_value": 750000.0,
+          "weight_pct": 37.5,
+          "total_cost": 660000.0
+        },
+        {
+          "name": "ITC Limited",
+          "isin": "INE154A01025",
+          "quantity": 500.0,
+          "avg_cost": 450.0,
+          "price": 500.0,
+          "market_value": 250000.0,
+          "weight_pct": 12.5,
+          "total_cost": 225000.0
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2026-09-05",
+          "type": "inflow",
+          "raw_type": "CAPITAL IN",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 100000.0
+        },
+        {
+          "date": "2026-09-12",
+          "type": "buy",
+          "raw_type": "ACQUIRE",
+          "security": "Infosys Limited",
+          "isin": "INE009A01021",
+          "quantity": 100.0,
+          "price": 1800.0,
+          "amount": 180000.0
+        },
+        {
+          "date": "2026-09-20",
+          "type": "sell",
+          "raw_type": "DISPOSE",
+          "security": "ITC Limited",
+          "isin": "INE154A01025",
+          "quantity": 50.0,
+          "price": 500.0,
+          "amount": 25000.0
+        },
+        {
+          "date": "2026-09-30",
+          "type": "fee",
+          "raw_type": "ADVISORY LEVY",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 5000.0
+        }
+      ]
+    }
+  ]
+}

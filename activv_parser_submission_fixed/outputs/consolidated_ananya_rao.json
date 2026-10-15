@@ -1,0 +1,357 @@
+{
+  "client_name": "Ananya Rao",
+  "pan": "SAMPL1001A",
+  "period": "2026-09-30",
+  "currency": "INR",
+  "total_corpus": 15125925.0,
+  "total_cash": 509000.0,
+  "total_equity_value": 9249675.0,
+  "total_aif_value": 5367250.0,
+  "asset_allocation": {
+    "Listed Equity": 61.15,
+    "AIF Alternatives": 35.48,
+    "Cash & Equivalents": 3.37
+  },
+  "participating_providers": [
+    "Aurum Capital PMS",
+    "Delta Ridge Securities",
+    "Evergreen Alternatives"
+  ],
+  "listed_holdings": [
+    {
+      "isin": "INE018A01030",
+      "name": "Larsen & Toubro Limited",
+      "quantity": 225.0,
+      "market_value": 761287.5,
+      "total_cost": 676350.0,
+      "weight_pct": 5.03,
+      "providers_held_in": [
+        "Delta Ridge Securities"
+      ]
+    },
+    {
+      "isin": "INE021A01026",
+      "name": "Asian Paints Limited",
+      "quantity": 330.0,
+      "market_value": 739200.0,
+      "total_cost": 552420.0,
+      "weight_pct": 4.89,
+      "providers_held_in": [
+        "Delta Ridge Securities"
+      ]
+    },
+    {
+      "isin": "INE044A01036",
+      "name": "Sun Pharmaceutical Industries Limited",
+      "quantity": 420.0,
+      "market_value": 657930.0,
+      "total_cost": 535080.0,
+      "weight_pct": 4.35,
+      "providers_held_in": [
+        "Aurum Capital PMS"
+      ]
+    },
+    {
+      "isin": "INE121A01024",
+      "name": "Cholamandalam Investment and Finance Company Limited",
+      "quantity": 545.0,
+      "market_value": 785890.0,
+      "total_cost": 677980.0,
+      "weight_pct": 5.2,
+      "providers_held_in": [
+        "Aurum Capital PMS"
+      ]
+    },
+    {
+      "isin": "INE154A01025",
+      "name": "ITC Limited",
+      "quantity": 1455.0,
+      "market_value": 568905.0,
+      "total_cost": 537622.5,
+      "weight_pct": 3.76,
+      "providers_held_in": [
+        "Delta Ridge Securities"
+      ]
+    },
+    {
+      "isin": "INE237A01028",
+      "name": "Kotak Mahindra Bank Limited",
+      "quantity": 865.0,
+      "market_value": 1567740.0,
+      "total_cost": 1322205.0,
+      "weight_pct": 10.36,
+      "providers_held_in": [
+        "Aurum Capital PMS",
+        "Delta Ridge Securities"
+      ]
+    },
+    {
+      "isin": "INE238A01034",
+      "name": "Axis Bank Limited",
+      "quantity": 570.0,
+      "market_value": 663765.0,
+      "total_cost": 605910.0,
+      "weight_pct": 4.39,
+      "providers_held_in": [
+        "Delta Ridge Securities"
+      ]
+    },
+    {
+      "isin": "INE280A01028",
+      "name": "Titan Company Limited",
+      "quantity": 225.0,
+      "market_value": 805500.0,
+      "total_cost": 589837.5,
+      "weight_pct": 5.33,
+      "providers_held_in": [
+        "Delta Ridge Securities"
+      ]
+    },
+    {
+      "isin": "INE397D01024",
+      "name": "Bharti Airtel Limited",
+      "quantity": 385.0,
+      "market_value": 582890.0,
+      "total_cost": 499537.5,
+      "weight_pct": 3.85,
+      "providers_held_in": [
+        "Aurum Capital PMS"
+      ]
+    },
+    {
+      "isin": "INE481G01011",
+      "name": "UltraTech Cement Limited",
+      "quantity": 80.0,
+      "market_value": 971160.0,
+      "total_cost": 797600.0,
+      "weight_pct": 6.42,
+      "providers_held_in": [
+        "Aurum Capital PMS"
+      ]
+    },
+    {
+      "isin": "INE585B01010",
+      "name": "Maruti Suzuki India Limited",
+      "quantity": 55.0,
+      "market_value": 623700.0,
+      "total_cost": 536305.0,
+      "weight_pct": 4.12,
+      "providers_held_in": [
+        "Delta Ridge Securities"
+      ]
+    },
+    {
+      "isin": "INE603J01030",
+      "name": "PI Industries Limited",
+      "quantity": 135.0,
+      "market_value": 521707.5,
+      "total_cost": 435510.0,
+      "weight_pct": 3.45,
+      "providers_held_in": [
+        "Aurum Capital PMS"
+      ]
+    }
+  ],
+  "aif_holdings": [
+    {
+      "name": "Helio Mobility Private Limited",
+      "provider": "Evergreen Alternatives",
+      "quantity": 33000.0,
+      "market_value": 1627000.0,
+      "price": 49.303,
+      "instrument": "Convertible Notes"
+    },
+    {
+      "name": "Lumen Retail Private Limited",
+      "provider": "Evergreen Alternatives",
+      "quantity": 23000.0,
+      "market_value": 1506250.0,
+      "price": 65.4891,
+      "instrument": "Pre-IPO Equity"
+    },
+    {
+      "name": "Verdant Foods Private Limited",
+      "provider": "Evergreen Alternatives",
+      "quantity": 24000.0,
+      "market_value": 1117000.0,
+      "price": 46.5417,
+      "instrument": "Series C CCPS"
+    },
+    {
+      "name": "Quanta Health Private Limited",
+      "provider": "Evergreen Alternatives",
+      "quantity": 30500.0,
+      "market_value": 1117000.0,
+      "price": 36.623,
+      "instrument": "Series B CCPS"
+    }
+  ],
+  "raw_statements_count": 3,
+  "excluded_statements": [
+    {
+      "source_file": "pms/02_aurum_A2_sell_and_outflow.pdf",
+      "provider": "Aurum Capital PMS",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL1002B",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "pms/03_aurum_A3_loss_month_no_trades.pdf",
+      "provider": "Aurum Capital PMS",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL1003C",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "pms/04_banyan_B1_quarterly_2pages.pdf",
+      "provider": "Banyan Wealth Advisors",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL2001D",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "pms/05_banyan_B2_quarterly_3pages.pdf",
+      "provider": "Banyan Wealth Advisors",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL2002E",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "pms/06_cedar_C1_textflow.pdf",
+      "provider": "Cedar Peak Asset Managers",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL3001F",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "pms/07_cedar_C2_textflow.pdf",
+      "provider": "Cedar Peak Asset Managers",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL3002G",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "pms/09_delta_D2_ledger.pdf",
+      "provider": "Delta Ridge Securities",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL4002J",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "pms/10_aurum_v2_layout_drift.pdf",
+      "reason": "unvalidated_status",
+      "status": "needs_review",
+      "issues": [
+        "layout_drift_known_provider"
+      ]
+    },
+    {
+      "source_file": "pms/11_aurum_multi_client_2in1.pdf",
+      "provider": "Aurum Capital PMS",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL1004D",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "pms/11_aurum_multi_client_2in1.pdf",
+      "provider": "Aurum Capital PMS",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL1005E",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "aif/13_evergreen_E2_cat2_no_activity.pdf",
+      "provider": "Evergreen Alternatives",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL5002L",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "aif/14_fulcrum_F1_cat3_inr.pdf",
+      "provider": "Fulcrum Hedge Partners",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL6001M",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "aif/15_fulcrum_F2_cat3_usd.pdf",
+      "provider": "Fulcrum Hedge Partners",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL6002N",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "excel_csv/16_hestia_statement.xlsx",
+      "provider": "Hestia Portfolio Services",
+      "reason": "pan_mismatch",
+      "statement_pan": "SAMPL7001P",
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "excel_csv/17_hestia_statement.csv",
+      "provider": "Hestia Portfolio Services",
+      "reason": "pan_mismatch",
+      "statement_pan": null,
+      "target_pan": "SAMPL1001A"
+    },
+    {
+      "source_file": "edge_cases/18_scanned_aurum_A1.pdf",
+      "reason": "unvalidated_status",
+      "status": "needs_review",
+      "issues": [
+        "no_text_layer_requires_ocr"
+      ]
+    },
+    {
+      "source_file": "edge_cases/19_broken_totals_aurum.pdf",
+      "reason": "unvalidated_status",
+      "status": "needs_review",
+      "issues": [
+        "holdings_sum_ne_stated_total_equity"
+      ]
+    },
+    {
+      "source_file": "edge_cases/20_broken_rollforward_cedar.pdf",
+      "reason": "unvalidated_status",
+      "status": "needs_review",
+      "issues": [
+        "summary_rollforward_mismatch",
+        "closing_value_ne_holdings_total"
+      ]
+    },
+    {
+      "source_file": "edge_cases/21_broken_missing_page_banyan.pdf",
+      "reason": "unvalidated_status",
+      "status": "needs_review",
+      "issues": [
+        "incomplete_document_missing_continuation_page"
+      ]
+    },
+    {
+      "source_file": "edge_cases/22_broken_isin_delta.pdf",
+      "reason": "unvalidated_status",
+      "status": "needs_review",
+      "issues": [
+        "invalid_isin_checksum"
+      ]
+    },
+    {
+      "source_file": "edge_cases/24_neg_factsheet.pdf",
+      "reason": "unvalidated_status",
+      "status": "not_a_statement",
+      "issues": []
+    },
+    {
+      "source_file": "edge_cases/25_neg_invoice.pdf",
+      "reason": "unvalidated_status",
+      "status": "not_a_statement",
+      "issues": []
+    },
+    {
+      "source_file": "edge_cases/26_neg_contract_note.pdf",
+      "reason": "unvalidated_status",
+      "status": "not_a_statement",
+      "issues": []
+    }
+  ]
+}

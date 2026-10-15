@@ -1,0 +1,11 @@
+{
+  "file": "edge_cases/24_neg_factsheet.pdf",
+  "format_id": "none",
+  "status": "not_a_statement",
+  "issues": [],
+  "statements": [],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "3de14b9390f15db7fcd45de859f520042a5aa1594d3aa2aa0c484c34237d909c"
+}

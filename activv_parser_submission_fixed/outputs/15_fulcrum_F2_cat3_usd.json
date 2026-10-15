@@ -1,0 +1,162 @@
+{
+  "file": "aif/15_fulcrum_F2_cat3_usd.pdf",
+  "format_id": "fulcrum_aif_cat3",
+  "status": "validated",
+  "issues": [],
+  "statements": [
+    {
+      "statement": {
+        "provider": "Fulcrum Hedge Partners",
+        "strategy": "Fulcrum Global Long-Short Fund (GIFT City)",
+        "client_id": "FHP-UH-3301",
+        "client_name": "Isabel Fernandes",
+        "pan": "SAMPL6002N",
+        "period_start": "2026-09-01",
+        "period_end": "2026-09-30",
+        "currency": "USD"
+      },
+      "summary": {
+        "opening": 5810000.0,
+        "inflow": 0.0,
+        "outflow": 250000.0,
+        "gain": 91250.0,
+        "fee": 9000.0,
+        "cash": 2906307.5,
+        "closing": 5642250.0,
+        "mgmt_fee": 9000.0,
+        "perf_fee": 0.0,
+        "units": 50000.0,
+        "nav_per_unit": 112.845,
+        "missing_columns": [],
+        "stated_gross_long": 4480990.0,
+        "stated_gross_short": -1745047.5,
+        "cash_from_row": 2906307.5,
+        "stated_nav": 5642250.0
+      },
+      "holdings": [
+        {
+          "name": "NVIDIA Corporation",
+          "isin": "US67066G1040",
+          "quantity": 4835.0,
+          "market_value": 906562.5,
+          "weight_pct": 16.07,
+          "price": 187.5,
+          "avg_cost": null,
+          "total_cost": null,
+          "side": "long",
+          "instrument": null
+        },
+        {
+          "name": "Microsoft Corporation",
+          "isin": "US5949181045",
+          "quantity": 1655.0,
+          "market_value": 805985.0,
+          "weight_pct": 14.28,
+          "price": 487.0,
+          "avg_cost": null,
+          "total_cost": null,
+          "side": "long",
+          "instrument": null
+        },
+        {
+          "name": "Exxon Mobil Corporation",
+          "isin": "US30231G1022",
+          "quantity": 7285.0,
+          "market_value": 786780.0,
+          "weight_pct": 13.94,
+          "price": 108.0,
+          "avg_cost": null,
+          "total_cost": null,
+          "side": "long",
+          "instrument": null
+        },
+        {
+          "name": "JPMorgan Chase & Co.",
+          "isin": "US46625H1005",
+          "quantity": 2705.0,
+          "market_value": 707357.5,
+          "weight_pct": 12.54,
+          "price": 261.5,
+          "avg_cost": null,
+          "total_cost": null,
+          "side": "long",
+          "instrument": null
+        },
+        {
+          "name": "Alphabet Inc. Class A",
+          "isin": "US02079K3059",
+          "quantity": 3330.0,
+          "market_value": 682650.0,
+          "weight_pct": 12.1,
+          "price": 205.0,
+          "avg_cost": null,
+          "total_cost": null,
+          "side": "long",
+          "instrument": null
+        },
+        {
+          "name": "Tesla, Inc.",
+          "isin": "US88160R1014",
+          "quantity": 2455.0,
+          "market_value": 591655.0,
+          "weight_pct": 10.49,
+          "price": 241.0,
+          "avg_cost": null,
+          "total_cost": null,
+          "side": "long",
+          "instrument": null
+        },
+        {
+          "name": "Visa Inc. Class A",
+          "isin": "US92826C8394",
+          "quantity": -1995.0,
+          "market_value": -704235.0,
+          "weight_pct": -12.48,
+          "price": 353.0,
+          "avg_cost": null,
+          "total_cost": null,
+          "side": "short",
+          "instrument": null
+        },
+        {
+          "name": "Johnson & Johnson",
+          "isin": "US4781601046",
+          "quantity": -6825.0,
+          "market_value": -1040812.5,
+          "weight_pct": -18.45,
+          "price": 152.5,
+          "avg_cost": null,
+          "total_cost": null,
+          "side": "short",
+          "instrument": null
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2026-09-17",
+          "type": "outflow",
+          "raw_type": "REDEMPTION",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 250000.0
+        },
+        {
+          "date": "2026-09-30",
+          "type": "fee",
+          "raw_type": "MGMT FEE",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 9000.0
+        }
+      ]
+    }
+  ],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "921953789e6846d525761d9eb83bce64b6160c43610927f1362b87d7f9cca199"
+}

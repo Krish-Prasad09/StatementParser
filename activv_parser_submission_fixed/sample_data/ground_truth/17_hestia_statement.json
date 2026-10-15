@@ -1,0 +1,165 @@
+{
+ "file": "excel_csv/17_hestia_statement.csv",
+ "format_id": "hestia_pms_csv",
+ "scenario": "sectioned CSV (SUMMARY/HOLDINGS/TRANSACTIONS blocks in one file)",
+ "expected_status": "validated",
+ "expected_issues": [],
+ "notes": "",
+ "statements": [
+  {
+   "statement": {
+    "provider": "Hestia Portfolio Services",
+    "strategy": "Hestia Value Strategy",
+    "client_id": "HPS-3301",
+    "client_name": "Imran Sheikh",
+    "pan": "SAMPL7001P",
+    "period_start": "2026-09-01",
+    "period_end": "2026-09-30",
+    "currency": "INR"
+   },
+   "summary": {
+    "opening": 5150000.0,
+    "inflow": 250000.0,
+    "outflow": 0.0,
+    "gain": 158620.0,
+    "fee": 12500.0,
+    "cash": 165000.0,
+    "closing": 5546120.0
+   },
+   "holdings": [
+    {
+     "name": "Cholamandalam Investment and Finance Company Limited",
+     "isin": "INE121A01024",
+     "quantity": 695,
+     "market_value": 913230.0,
+     "weight_pct": 16.47,
+     "price": 1314.0,
+     "avg_cost": 1051.5,
+     "total_cost": 730792.5
+    },
+    {
+     "name": "Axis Bank Limited",
+     "isin": "INE238A01034",
+     "quantity": 775,
+     "market_value": 889312.5,
+     "weight_pct": 16.03,
+     "price": 1147.5,
+     "avg_cost": 932.0,
+     "total_cost": 722300.0
+    },
+    {
+     "name": "Larsen & Toubro Limited",
+     "isin": "INE018A01030",
+     "quantity": 220,
+     "market_value": 792220.0,
+     "weight_pct": 14.28,
+     "price": 3601.0,
+     "avg_cost": 3225.0,
+     "total_cost": 709500.0
+    },
+    {
+     "name": "UltraTech Cement Limited",
+     "isin": "INE481G01011",
+     "quantity": 60,
+     "market_value": 757080.0,
+     "weight_pct": 13.65,
+     "price": 12618.0,
+     "avg_cost": 9592.5,
+     "total_cost": 575550.0
+    },
+    {
+     "name": "Maruti Suzuki India Limited",
+     "isin": "INE585B01010",
+     "quantity": 55,
+     "market_value": 717007.5,
+     "weight_pct": 12.93,
+     "price": 13036.5,
+     "avg_cost": 12181.0,
+     "total_cost": 669955.0
+    },
+    {
+     "name": "Kotak Mahindra Bank Limited",
+     "isin": "INE237A01028",
+     "quantity": 370,
+     "market_value": 694120.0,
+     "weight_pct": 12.52,
+     "price": 1876.0,
+     "avg_cost": 1553.0,
+     "total_cost": 574610.0
+    },
+    {
+     "name": "PI Industries Limited",
+     "isin": "INE603J01030",
+     "quantity": 150,
+     "market_value": 618150.0,
+     "weight_pct": 11.15,
+     "price": 4121.0,
+     "avg_cost": 3477.0,
+     "total_cost": 521550.0
+    }
+   ],
+   "transactions": [
+    {
+     "date": "2026-09-04",
+     "type": "inflow",
+     "raw_type": "INFLOW",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 250000.0
+    },
+    {
+     "date": "2026-09-07",
+     "type": "buy",
+     "raw_type": "BUY",
+     "security": "Larsen & Toubro Limited",
+     "isin": "INE018A01030",
+     "quantity": 135,
+     "price": 3701.0,
+     "amount": 499635.0
+    },
+    {
+     "date": "2026-09-17",
+     "type": "sell",
+     "raw_type": "SELL",
+     "security": "Maruti Suzuki India Limited",
+     "isin": "INE585B01010",
+     "quantity": 130,
+     "price": 12986.5,
+     "amount": 1688245.0
+    },
+    {
+     "date": "2026-09-21",
+     "type": "dividend",
+     "raw_type": "DIVIDEND",
+     "security": "PI Industries Limited",
+     "isin": "INE603J01030",
+     "quantity": null,
+     "price": null,
+     "amount": 2500.0
+    },
+    {
+     "date": "2026-09-22",
+     "type": "buy",
+     "raw_type": "BUY",
+     "security": "Cholamandalam Investment and Finance Company Limited",
+     "isin": "INE121A01024",
+     "quantity": 145,
+     "price": 1314.0,
+     "amount": 190530.0
+    },
+    {
+     "date": "2026-09-30",
+     "type": "fee",
+     "raw_type": "FEE",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 12500.0
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,11 @@
+{
+  "file": "edge_cases/26_neg_contract_note.pdf",
+  "format_id": "none",
+  "status": "not_a_statement",
+  "issues": [],
+  "statements": [],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "4df556371acfee4fb69854e3671493d0d547a016d504116b748eabe18ca34bbb"
+}

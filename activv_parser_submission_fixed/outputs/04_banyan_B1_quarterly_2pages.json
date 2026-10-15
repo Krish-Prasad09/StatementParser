@@ -1,0 +1,253 @@
+{
+  "file": "pms/04_banyan_B1_quarterly_2pages.pdf",
+  "format_id": "banyan_pms_quarterly",
+  "status": "validated",
+  "issues": [],
+  "statements": [
+    {
+      "statement": {
+        "provider": "Banyan Wealth Advisors",
+        "strategy": "Banyan India Pioneers Equity",
+        "client_id": "BW-770301",
+        "client_name": "Rohit Kulkarni",
+        "pan": "SAMPL2001D",
+        "period_start": "2026-07-01",
+        "period_end": "2026-09-30",
+        "currency": "INR"
+      },
+      "summary": {
+        "opening": 11220000.0,
+        "inflow": 0.0,
+        "outflow": 0.0,
+        "gain": null,
+        "fee": 18250.0,
+        "cash": 420000.0,
+        "closing": 11991252.5,
+        "mgmt_fee": null,
+        "perf_fee": null,
+        "units": null,
+        "nav_per_unit": null,
+        "missing_columns": [],
+        "cash_from_summary": 420000.0,
+        "stated_equity": 11571252.5,
+        "stated_nav": 11991252.5
+      },
+      "holdings": [
+        {
+          "name": "Maruti Suzuki India Ltd",
+          "isin": "INE585B01010",
+          "quantity": 95.0,
+          "market_value": 1086515.0,
+          "weight_pct": 9.06,
+          "price": 11437.0,
+          "avg_cost": 8652.5,
+          "total_cost": 821987.5,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "ICICI Bank Ltd",
+          "isin": "INE090A01021",
+          "quantity": 930.0,
+          "market_value": 1045785.0,
+          "weight_pct": 8.72,
+          "price": 1124.5,
+          "avg_cost": 873.0,
+          "total_cost": 811890.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "State Bank of India",
+          "isin": "INE062A01020",
+          "quantity": 1360.0,
+          "market_value": 1030880.0,
+          "weight_pct": 8.6,
+          "price": 758.0,
+          "avg_cost": 624.5,
+          "total_cost": 849320.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Sun Pharmaceutical Inds Ltd",
+          "isin": "INE044A01036",
+          "quantity": 640.0,
+          "market_value": 1023040.0,
+          "weight_pct": 8.53,
+          "price": 1598.5,
+          "avg_cost": 1224.0,
+          "total_cost": 783360.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Infosys Ltd",
+          "isin": "INE009A01021",
+          "quantity": 660.0,
+          "market_value": 926640.0,
+          "weight_pct": 7.73,
+          "price": 1404.0,
+          "avg_cost": 1188.0,
+          "total_cost": 784080.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Havells India Ltd",
+          "isin": "INE176B01034",
+          "quantity": 580.0,
+          "market_value": 917560.0,
+          "weight_pct": 7.65,
+          "price": 1582.0,
+          "avg_cost": 1183.5,
+          "total_cost": 686430.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Cholamandalam Inv & Fin Co Ltd",
+          "isin": "INE121A01024",
+          "quantity": 620.0,
+          "market_value": 881950.0,
+          "weight_pct": 7.35,
+          "price": 1422.5,
+          "avg_cost": 1119.5,
+          "total_cost": 694090.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Reliance Inds Ltd",
+          "isin": "INE002A01018",
+          "quantity": 310.0,
+          "market_value": 792360.0,
+          "weight_pct": 6.61,
+          "price": 2556.0,
+          "avg_cost": 2297.5,
+          "total_cost": 712225.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Hindustan Unilever Ltd",
+          "isin": "INE030A01027",
+          "quantity": 330.0,
+          "market_value": 725670.0,
+          "weight_pct": 6.05,
+          "price": 2199.0,
+          "avg_cost": 1900.5,
+          "total_cost": 627165.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "ITC Ltd",
+          "isin": "INE154A01025",
+          "quantity": 1725.0,
+          "market_value": 725362.5,
+          "weight_pct": 6.05,
+          "price": 420.5,
+          "avg_cost": 398.5,
+          "total_cost": 687412.5,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Bajaj Auto Ltd",
+          "isin": "INE917I01010",
+          "quantity": 80.0,
+          "market_value": 705760.0,
+          "weight_pct": 5.89,
+          "price": 8822.0,
+          "avg_cost": 6731.0,
+          "total_cost": 538480.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "UltraTech Cement Ltd",
+          "isin": "INE481G01011",
+          "quantity": 60.0,
+          "market_value": 699870.0,
+          "weight_pct": 5.84,
+          "price": 11664.5,
+          "avg_cost": 9891.0,
+          "total_cost": 593460.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Titan Co Ltd",
+          "isin": "INE280A01028",
+          "quantity": 160.0,
+          "market_value": 548640.0,
+          "weight_pct": 4.58,
+          "price": 3429.0,
+          "avg_cost": 2527.0,
+          "total_cost": 404320.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Larsen & Toubro Ltd",
+          "isin": "INE018A01030",
+          "quantity": 120.0,
+          "market_value": 461220.0,
+          "weight_pct": 3.85,
+          "price": 3843.5,
+          "avg_cost": 2787.0,
+          "total_cost": 334440.0,
+          "side": null,
+          "instrument": null
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2026-08-04",
+          "type": "sell",
+          "raw_type": "SELL",
+          "security": "Hindustan Unilever Ltd",
+          "isin": "INE030A01027",
+          "quantity": 115.0,
+          "price": 2199.0,
+          "amount": 252885.0
+        },
+        {
+          "date": "2026-08-25",
+          "type": "buy",
+          "raw_type": "BUY",
+          "security": "State Bank of India",
+          "isin": "INE062A01020",
+          "quantity": 30.0,
+          "price": 758.0,
+          "amount": 22740.0
+        },
+        {
+          "date": "2026-09-04",
+          "type": "buy",
+          "raw_type": "BUY",
+          "security": "State Bank of India",
+          "isin": "INE062A01020",
+          "quantity": 25.0,
+          "price": 808.0,
+          "amount": 20200.0
+        },
+        {
+          "date": "2026-09-30",
+          "type": "fee",
+          "raw_type": "FEE",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 18250.0
+        }
+      ]
+    }
+  ],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "3caa7bad736748a7f1339c26f0ca89f2002f13270f6d122807d073f1969d414b"
+}

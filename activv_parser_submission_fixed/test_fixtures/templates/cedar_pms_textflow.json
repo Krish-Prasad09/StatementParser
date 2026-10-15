@@ -1,0 +1,90 @@
+{
+  "format_id": "cedar_pms_textflow",
+  "version": 1,
+  "layout_kind": "monospace_text",
+  "provider_key": "cedar_pms",
+  "sebi_regn": "INP000099003",
+  "approved": true,
+  "fingerprint": {
+    "table_headers": [
+      "# Security ISIN Qty Avg Cost Price Value %NAV",
+      "Date Type Particulars Qty Price Amount"
+    ],
+    "summary_headers": [],
+    "holdings_headers": [],
+    "transactions_headers": [],
+    "section_titles": []
+  },
+  "fields": {
+    "provider": "Cedar Peak Asset Managers",
+    "client_id_pattern": "Client ID\\s*:\\s*([A-Za-z0-9\\/\\-]+)",
+    "client_name_pattern": "Client Name\\s*:\\s*([^\\n\\r]+)",
+    "pan_pattern": "PAN\\s*:\\s*([A-Z]{5}[0-9]{4}[A-Z])",
+    "strategy_pattern": "Strategy\\s*:\\s*([^\\n\\r]+)"
+  },
+  "period": {
+    "pattern": "Period\\s*:\\s*([0-9\\/]+)\\s+to\\s+([0-9\\/]+)",
+    "format": "DD/MM/YYYY"
+  },
+  "summary": {
+    "has_gain": true,
+    "derive_fee_sum": false,
+    "section_header": "PORTFOLIO SUMMARY",
+    "mapping": {
+      "opening": "Opening Value",
+      "inflow": "Funds Introduced",
+      "outflow": "Funds Withdrawn",
+      "gain": "Net Gain/(Loss)",
+      "fee": "Fees & Charges",
+      "cash": "Cash & Equivalents",
+      "closing": "Closing Value"
+    },
+    "sections": []
+  },
+  "holdings": {
+    "mapping": {},
+    "regex": "^\\s*(\\d+)\\s+(.+?)\\s+([A-Z0-9]{12})\\s+([0-9,.]+)\\s+([0-9,.]+)\\s+([0-9,.]+)\\s+([0-9,.]+)\\s+([0-9,.]+)",
+    "section_header": "HOLDINGS AS ON",
+    "end_markers": [
+      "TRANSACTIONS",
+      "Total"
+    ],
+    "total_row_labels": [
+      "Total"
+    ],
+    "cash_row_labels": [
+      "Cash & Equivalents"
+    ],
+    "nav_row_labels": [],
+    "gross_long_labels": [],
+    "gross_short_labels": [],
+    "supports_short": false,
+    "is_unlisted": false,
+    "derive_price": false,
+    "derive_avg_cost": false,
+    "sections": []
+  },
+  "transactions": {
+    "mapping": {},
+    "regex": "^([0-9\\/\\-]{10})\\s+({TYPE_TOKENS})\\s+(.+?)\\s+([0-9,.\\-]+)\\s+([0-9,.\\-]+)\\s+([\\-0-9,.]+)\\s*$",
+    "section_header": "TRANSACTIONS",
+    "end_markers": [
+      "End of report",
+      "Page "
+    ],
+    "type_map": {
+      "PURCHASE": "buy",
+      "SALE": "sell",
+      "DIVIDEND": "dividend",
+      "CHARGES": "fee",
+      "FUNDS IN": "inflow",
+      "FUNDS OUT": "outflow",
+      "INFLOW": "inflow",
+      "OUTFLOW": "outflow"
+    },
+    "sections": []
+  },
+  "learned_from": {
+    "sample": "sample_data/pms/06_cedar_C1_textflow.pdf"
+  }
+}

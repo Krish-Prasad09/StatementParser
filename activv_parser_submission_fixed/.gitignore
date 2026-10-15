@@ -1,0 +1,25 @@
+# Local credentials
+.env
+
+# Python cache and test tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Runtime state created by the dashboard and mailbox worker
+*.db
+*.db-shm
+*.db-wal
+ingested_attachments/
+temp_attachments/
+logs/
+
+# Runtime templates are created only after successful LLM learning.
+# Keep templates/.gitkeep so the empty directory is present after cloning.
+templates/*.json
+
+# Local virtual environments and editor settings
+.venv/
+venv/
+.idea/
+.vscode/

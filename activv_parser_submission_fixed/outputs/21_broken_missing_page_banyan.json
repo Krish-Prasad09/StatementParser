@@ -1,0 +1,13 @@
+{
+  "file": "edge_cases/21_broken_missing_page_banyan.pdf",
+  "format_id": "banyan_pms_quarterly",
+  "status": "needs_review",
+  "issues": [
+    "incomplete_document_missing_continuation_page"
+  ],
+  "statements": [],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "130d7cc4032b8f9f9e9817f216d10d51177de21010d3927f19bc21735ea5862d"
+}

@@ -1,0 +1,150 @@
+{
+ "file": "aif/14_fulcrum_F1_cat3_inr.pdf",
+ "format_id": "fulcrum_aif_cat3",
+ "scenario": "Category III long/short; negative quantities and values for shorts; two fee lines",
+ "expected_status": "validated",
+ "expected_issues": [],
+ "notes": "Short positions have negative quantity and negative market value.",
+ "statements": [
+  {
+   "statement": {
+    "provider": "Fulcrum Hedge Partners",
+    "strategy": "Fulcrum Long-Short Equity Fund",
+    "client_id": "FHP-UH-2208",
+    "client_name": "Aditya Bose",
+    "pan": "SAMPL6001M",
+    "period_start": "2026-09-01",
+    "period_end": "2026-09-30",
+    "currency": "INR"
+   },
+   "summary": {
+    "opening": 14210000.0,
+    "inflow": 1000000.0,
+    "outflow": 0.0,
+    "gain": 287000.0,
+    "fee": 155000.0,
+    "cash": 8035682.5,
+    "closing": 15342000.0,
+    "mgmt_fee": 110000.0,
+    "perf_fee": 45000.0,
+    "units": 100000,
+    "nav_per_unit": 153.42
+   },
+   "holdings": [
+    {
+     "name": "Tata Consultancy Services Limited",
+     "isin": "INE467B01029",
+     "quantity": 520,
+     "market_value": 2105740.0,
+     "weight_pct": 13.73,
+     "price": 4049.5,
+     "side": "long"
+    },
+    {
+     "name": "UltraTech Cement Limited",
+     "isin": "INE481G01011",
+     "quantity": 180,
+     "market_value": 2052180.0,
+     "weight_pct": 13.38,
+     "price": 11401.0,
+     "side": "long"
+    },
+    {
+     "name": "Maruti Suzuki India Limited",
+     "isin": "INE585B01010",
+     "quantity": 150,
+     "market_value": 1759800.0,
+     "weight_pct": 11.47,
+     "price": 11732.0,
+     "side": "long"
+    },
+    {
+     "name": "PI Industries Limited",
+     "isin": "INE603J01030",
+     "quantity": 405,
+     "market_value": 1656652.5,
+     "weight_pct": 10.8,
+     "price": 4090.5,
+     "side": "long"
+    },
+    {
+     "name": "Sun Pharmaceutical Industries Limited",
+     "isin": "INE044A01036",
+     "quantity": 1095,
+     "market_value": 1589940.0,
+     "weight_pct": 10.36,
+     "price": 1452.0,
+     "side": "long"
+    },
+    {
+     "name": "Reliance Industries Limited",
+     "isin": "INE002A01018",
+     "quantity": 570,
+     "market_value": 1489695.0,
+     "weight_pct": 9.71,
+     "price": 2613.5,
+     "side": "long"
+    },
+    {
+     "name": "Asian Paints Limited",
+     "isin": "INE021A01026",
+     "quantity": 615,
+     "market_value": 1344390.0,
+     "weight_pct": 8.76,
+     "price": 2186.0,
+     "side": "long"
+    },
+    {
+     "name": "Bajaj Auto Limited",
+     "isin": "INE917I01010",
+     "quantity": -235,
+     "market_value": -1965775.0,
+     "weight_pct": -12.81,
+     "price": 8365.0,
+     "side": "short"
+    },
+    {
+     "name": "HDFC Bank Limited",
+     "isin": "INE040A01034",
+     "quantity": -1510,
+     "market_value": -2726305.0,
+     "weight_pct": -17.77,
+     "price": 1805.5,
+     "side": "short"
+    }
+   ],
+   "transactions": [
+    {
+     "date": "2026-09-03",
+     "type": "inflow",
+     "raw_type": "SUBSCRIPTION",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 1000000.0
+    },
+    {
+     "date": "2026-09-30",
+     "type": "fee",
+     "raw_type": "MGMT FEE",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 110000.0
+    },
+    {
+     "date": "2026-09-30",
+     "type": "fee",
+     "raw_type": "PERF FEE",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 45000.0
+    }
+   ]
+  }
+ ]
+}

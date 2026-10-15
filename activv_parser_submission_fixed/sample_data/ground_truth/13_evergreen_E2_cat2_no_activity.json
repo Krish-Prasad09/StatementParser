@@ -1,0 +1,101 @@
+{
+ "file": "aif/13_evergreen_E2_cat2_no_activity.pdf",
+ "format_id": "evergreen_aif_cat2",
+ "scenario": "same format as 12; no drawdown/distribution, fee-only activity, 6 holdings",
+ "expected_status": "validated",
+ "expected_issues": [],
+ "notes": "",
+ "statements": [
+  {
+   "statement": {
+    "provider": "Evergreen Alternatives",
+    "strategy": "Evergreen Special Situations Fund II",
+    "client_id": "EVG-AIF-4477",
+    "client_name": "Tara Kapoor",
+    "pan": "SAMPL5002L",
+    "period_start": "2026-09-01",
+    "period_end": "2026-09-30",
+    "currency": "INR"
+   },
+   "summary": {
+    "opening": 10090000.0,
+    "inflow": 0.0,
+    "outflow": 0.0,
+    "gain": 400000.0,
+    "fee": 30000.0,
+    "cash": 314000.0,
+    "closing": 10460000.0,
+    "units": 400000,
+    "nav_per_unit": 26.15
+   },
+   "holdings": [
+    {
+     "name": "Kiranapay Technologies Private Limited",
+     "isin": null,
+     "quantity": 40500,
+     "market_value": 2104000.0,
+     "weight_pct": 20.11,
+     "total_cost": 1618000.0,
+     "instrument": "Unlisted Equity"
+    },
+    {
+     "name": "Helio Mobility Private Limited",
+     "isin": null,
+     "quantity": 54000,
+     "market_value": 2074000.0,
+     "weight_pct": 19.83,
+     "total_cost": 1293000.0,
+     "instrument": "Convertible Notes"
+    },
+    {
+     "name": "Quanta Health Private Limited",
+     "isin": null,
+     "quantity": 54000,
+     "market_value": 1998000.0,
+     "weight_pct": 19.1,
+     "total_cost": 1272000.0,
+     "instrument": "Series B CCPS"
+    },
+    {
+     "name": "Orbit Logistics Private Limited",
+     "isin": null,
+     "quantity": 25000,
+     "market_value": 1525000.0,
+     "weight_pct": 14.58,
+     "total_cost": 1072000.0,
+     "instrument": "Pre-IPO Equity"
+    },
+    {
+     "name": "Verdant Foods Private Limited",
+     "isin": null,
+     "quantity": 27500,
+     "market_value": 1340000.0,
+     "weight_pct": 12.81,
+     "total_cost": 1013000.0,
+     "instrument": "Series C CCPS"
+    },
+    {
+     "name": "Lumen Retail Private Limited",
+     "isin": null,
+     "quantity": 20500,
+     "market_value": 1105000.0,
+     "weight_pct": 10.56,
+     "total_cost": 716000.0,
+     "instrument": "Pre-IPO Equity"
+    }
+   ],
+   "transactions": [
+    {
+     "date": "2026-09-30",
+     "type": "fee",
+     "raw_type": "FEE",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 30000.0
+    }
+   ]
+  }
+ ]
+}

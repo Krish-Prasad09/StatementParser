@@ -1,0 +1,260 @@
+{
+ "file": "pms/11_aurum_multi_client_2in1.pdf",
+ "format_id": "aurum_pms_monthly",
+ "scenario": "single PDF containing statements for two clients and two strategies",
+ "expected_status": "validated",
+ "expected_issues": [],
+ "notes": "Expect 2 statements from one document.",
+ "statements": [
+  {
+   "statement": {
+    "provider": "Aurum Capital PMS",
+    "strategy": "Aurum Focused Midcap",
+    "client_id": "AUR-100204",
+    "client_name": "Rahul Verma",
+    "pan": "SAMPL1004D",
+    "period_start": "2026-09-01",
+    "period_end": "2026-09-30",
+    "currency": "INR"
+   },
+   "summary": {
+    "opening": 2720000.0,
+    "inflow": 200000.0,
+    "outflow": 0.0,
+    "gain": 78437.5,
+    "fee": 12500.0,
+    "cash": 90000.0,
+    "closing": 2985937.5
+   },
+   "holdings": [
+    {
+     "name": "Sun Pharmaceutical Industries Limited",
+     "isin": "INE044A01036",
+     "quantity": 500,
+     "market_value": 820750.0,
+     "weight_pct": 27.49,
+     "price": 1641.5,
+     "avg_cost": 1272.5,
+     "total_cost": 636250.0
+    },
+    {
+     "name": "HDFC Bank Limited",
+     "isin": "INE040A01034",
+     "quantity": 480,
+     "market_value": 762000.0,
+     "weight_pct": 25.52,
+     "price": 1587.5,
+     "avg_cost": 1227.5,
+     "total_cost": 589200.0
+    },
+    {
+     "name": "Reliance Industries Limited",
+     "isin": "INE002A01018",
+     "quantity": 175,
+     "market_value": 486762.5,
+     "weight_pct": 16.3,
+     "price": 2781.5,
+     "avg_cost": 2182.5,
+     "total_cost": 381937.5
+    },
+    {
+     "name": "Larsen & Toubro Limited",
+     "isin": "INE018A01030",
+     "quantity": 110,
+     "market_value": 434775.0,
+     "weight_pct": 14.56,
+     "price": 3952.5,
+     "avg_cost": 2917.5,
+     "total_cost": 320925.0
+    },
+    {
+     "name": "PI Industries Limited",
+     "isin": "INE603J01030",
+     "quantity": 105,
+     "market_value": 391650.0,
+     "weight_pct": 13.12,
+     "price": 3730.0,
+     "avg_cost": 3435.5,
+     "total_cost": 360727.5
+    }
+   ],
+   "transactions": [
+    {
+     "date": "2026-09-07",
+     "type": "inflow",
+     "raw_type": "INFLOW",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 200000.0
+    },
+    {
+     "date": "2026-09-16",
+     "type": "buy",
+     "raw_type": "BUY",
+     "security": "PI Industries Limited",
+     "isin": "INE603J01030",
+     "quantity": 100,
+     "price": 3830.0,
+     "amount": 383000.0
+    },
+    {
+     "date": "2026-09-21",
+     "type": "dividend",
+     "raw_type": "DIVIDEND",
+     "security": "Sun Pharmaceutical Industries Limited",
+     "isin": "INE044A01036",
+     "quantity": null,
+     "price": null,
+     "amount": 2200.0
+    },
+    {
+     "date": "2026-09-30",
+     "type": "fee",
+     "raw_type": "FEE",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 12500.0
+    }
+   ]
+  },
+  {
+   "statement": {
+    "provider": "Aurum Capital PMS",
+    "strategy": "Aurum Large Cap Core",
+    "client_id": "AUR-100205",
+    "client_name": "Kavya Reddy",
+    "pan": "SAMPL1005E",
+    "period_start": "2026-09-01",
+    "period_end": "2026-09-30",
+    "currency": "INR"
+   },
+   "summary": {
+    "opening": 5040000.0,
+    "inflow": 0.0,
+    "outflow": 0.0,
+    "gain": 156277.5,
+    "fee": 12500.0,
+    "cash": 156000.0,
+    "closing": 5183777.5
+   },
+   "holdings": [
+    {
+     "name": "Bajaj Auto Limited",
+     "isin": "INE917I01010",
+     "quantity": 125,
+     "market_value": 1017000.0,
+     "weight_pct": 19.62,
+     "price": 8136.0,
+     "avg_cost": 7369.0,
+     "total_cost": 921125.0
+    },
+    {
+     "name": "State Bank of India",
+     "isin": "INE062A01020",
+     "quantity": 1265,
+     "market_value": 1008837.5,
+     "weight_pct": 19.46,
+     "price": 797.5,
+     "avg_cost": 718.5,
+     "total_cost": 908902.5
+    },
+    {
+     "name": "Hindustan Unilever Limited",
+     "isin": "INE030A01027",
+     "quantity": 385,
+     "market_value": 868752.5,
+     "weight_pct": 16.76,
+     "price": 2256.5,
+     "avg_cost": 1970.5,
+     "total_cost": 758642.5
+    },
+    {
+     "name": "Havells India Limited",
+     "isin": "INE176B01034",
+     "quantity": 555,
+     "market_value": 843045.0,
+     "weight_pct": 16.26,
+     "price": 1519.0,
+     "avg_cost": 1427.5,
+     "total_cost": 792262.5
+    },
+    {
+     "name": "Titan Company Limited",
+     "isin": "INE280A01028",
+     "quantity": 215,
+     "market_value": 736482.5,
+     "weight_pct": 14.21,
+     "price": 3425.5,
+     "avg_cost": 3242.5,
+     "total_cost": 697137.5
+    },
+    {
+     "name": "Axis Bank Limited",
+     "isin": "INE238A01034",
+     "quantity": 470,
+     "market_value": 553660.0,
+     "weight_pct": 10.68,
+     "price": 1178.0,
+     "avg_cost": 1105.5,
+     "total_cost": 519585.0
+    }
+   ],
+   "transactions": [
+    {
+     "date": "2026-09-07",
+     "type": "buy",
+     "raw_type": "BUY",
+     "security": "Titan Company Limited",
+     "isin": "INE280A01028",
+     "quantity": 30,
+     "price": 3475.5,
+     "amount": 104265.0
+    },
+    {
+     "date": "2026-09-14",
+     "type": "dividend",
+     "raw_type": "DIVIDEND",
+     "security": "State Bank of India",
+     "isin": "INE062A01020",
+     "quantity": null,
+     "price": null,
+     "amount": 5800.0
+    },
+    {
+     "date": "2026-09-18",
+     "type": "dividend",
+     "raw_type": "DIVIDEND",
+     "security": "Hindustan Unilever Limited",
+     "isin": "INE030A01027",
+     "quantity": null,
+     "price": null,
+     "amount": 7800.0
+    },
+    {
+     "date": "2026-09-21",
+     "type": "sell",
+     "raw_type": "SELL",
+     "security": "Bajaj Auto Limited",
+     "isin": "INE917I01010",
+     "quantity": 115,
+     "price": 8136.0,
+     "amount": 935640.0
+    },
+    {
+     "date": "2026-09-30",
+     "type": "fee",
+     "raw_type": "FEE",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 12500.0
+    }
+   ]
+  }
+ ]
+}

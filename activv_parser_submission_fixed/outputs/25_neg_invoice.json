@@ -1,0 +1,11 @@
+{
+  "file": "edge_cases/25_neg_invoice.pdf",
+  "format_id": "none",
+  "status": "not_a_statement",
+  "issues": [],
+  "statements": [],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "ec077dbaaeafc367fb3a05b15ea705ed980441b1726ca738dafe847c443097c7"
+}

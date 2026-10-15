@@ -1,0 +1,176 @@
+{
+  "file": "pms/08_delta_D1_ledger.pdf",
+  "format_id": "delta_pms_ledger",
+  "status": "validated",
+  "issues": [],
+  "statements": [
+    {
+      "statement": {
+        "provider": "Delta Ridge Securities",
+        "strategy": "Delta Ridge Dynamic Alpha",
+        "client_id": "DR-55012",
+        "client_name": "Ananya Rao",
+        "pan": "SAMPL1001A",
+        "period_start": "2026-09-01",
+        "period_end": "2026-09-30",
+        "currency": "INR"
+      },
+      "summary": {
+        "opening": 4890000.0,
+        "inflow": 0.0,
+        "outflow": 0.0,
+        "gain": 142557.5,
+        "fee": 9800.0,
+        "cash": 150000.0,
+        "closing": 5022757.5,
+        "mgmt_fee": null,
+        "perf_fee": null,
+        "units": null,
+        "nav_per_unit": null,
+        "stated_equity": 4872757.5
+      },
+      "holdings": [
+        {
+          "name": "Titan Company Limited",
+          "isin": "INE280A01028",
+          "quantity": 225.0,
+          "market_value": 805500.0,
+          "weight_pct": 16.04,
+          "price": 3580.0,
+          "avg_cost": 2621.5,
+          "total_cost": 589837.5,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Larsen & Toubro Limited",
+          "isin": "INE018A01030",
+          "quantity": 225.0,
+          "market_value": 761287.5,
+          "weight_pct": 15.16,
+          "price": 3383.5,
+          "avg_cost": 3006.0,
+          "total_cost": 676350.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Asian Paints Limited",
+          "isin": "INE021A01026",
+          "quantity": 330.0,
+          "market_value": 739200.0,
+          "weight_pct": 14.72,
+          "price": 2240.0,
+          "avg_cost": 1674.0,
+          "total_cost": 552420.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Kotak Mahindra Bank Limited",
+          "isin": "INE237A01028",
+          "quantity": 370.0,
+          "market_value": 710400.0,
+          "weight_pct": 14.14,
+          "price": 1920.0,
+          "avg_cost": 1437.0,
+          "total_cost": 531690.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Axis Bank Limited",
+          "isin": "INE238A01034",
+          "quantity": 570.0,
+          "market_value": 663765.0,
+          "weight_pct": 13.22,
+          "price": 1164.5,
+          "avg_cost": 1063.0,
+          "total_cost": 605910.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Maruti Suzuki India Limited",
+          "isin": "INE585B01010",
+          "quantity": 55.0,
+          "market_value": 623700.0,
+          "weight_pct": 12.42,
+          "price": 11340.0,
+          "avg_cost": 9751.0,
+          "total_cost": 536305.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "ITC Limited",
+          "isin": "INE154A01025",
+          "quantity": 1455.0,
+          "market_value": 568905.0,
+          "weight_pct": 11.33,
+          "price": 391.0,
+          "avg_cost": 369.5,
+          "total_cost": 537622.5,
+          "side": null,
+          "instrument": null
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2026-09-07",
+          "type": "dividend",
+          "raw_type": "Dividend received",
+          "security": "Titan Company Limited",
+          "isin": "INE280A01028",
+          "quantity": null,
+          "price": null,
+          "amount": 3700.0
+        },
+        {
+          "date": "2026-09-11",
+          "type": "sell",
+          "raw_type": "Sale",
+          "security": "Titan Company Limited",
+          "isin": "INE280A01028",
+          "quantity": 145.0,
+          "price": 3680.0,
+          "amount": 533600.0
+        },
+        {
+          "date": "2026-09-16",
+          "type": "buy",
+          "raw_type": "Purchase",
+          "security": "Kotak Mahindra Bank Limited",
+          "isin": "INE237A01028",
+          "quantity": 35.0,
+          "price": 1970.0,
+          "amount": 68950.0
+        },
+        {
+          "date": "2026-09-17",
+          "type": "buy",
+          "raw_type": "Purchase",
+          "security": "Larsen & Toubro Limited",
+          "isin": "INE018A01030",
+          "quantity": 45.0,
+          "price": 3333.5,
+          "amount": 150007.5
+        },
+        {
+          "date": "2026-09-30",
+          "type": "fee",
+          "raw_type": "Charges debited",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 9800.0
+        }
+      ]
+    }
+  ],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "9685d71a07b5017297718986d5549a678bc643d69e20e5ba2fa43a15674883c4"
+}

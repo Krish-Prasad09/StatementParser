@@ -1,0 +1,137 @@
+{
+ "file": "pms/10_aurum_v2_layout_drift.pdf",
+ "format_id": "aurum_pms_monthly",
+ "scenario": "known provider (Aurum) silently changed layout: renamed headers, reordered columns, new Sector column, period wording changed",
+ "expected_status": "needs_review",
+ "expected_issues": [
+  "layout_drift_known_provider"
+ ],
+ "notes": "Same economic content as format aurum_pms_monthly. Ideal system detects the fingerprint mismatch and routes to relearn/review instead of parsing silently.",
+ "statements": [
+  {
+   "statement": {
+    "provider": "Aurum Capital PMS",
+    "strategy": "Aurum Multicap Growth",
+    "client_id": "AUR-100201",
+    "client_name": "Ananya Rao",
+    "pan": "SAMPL1001A",
+    "period_start": "2026-08-01",
+    "period_end": "2026-08-31",
+    "currency": "INR"
+   },
+   "summary": {
+    "opening": 4300000.0,
+    "inflow": 0.0,
+    "outflow": 0.0,
+    "gain": 85825.0,
+    "fee": 12500.0,
+    "cash": 132000.0,
+    "closing": 4373325.0
+   },
+   "holdings": [
+    {
+     "name": "Maruti Suzuki India Limited",
+     "isin": "INE585B01010",
+     "quantity": 85,
+     "market_value": 959692.5,
+     "weight_pct": 21.94,
+     "price": 11290.5,
+     "avg_cost": 9177.5,
+     "total_cost": 780087.5
+    },
+    {
+     "name": "Axis Bank Limited",
+     "isin": "INE238A01034",
+     "quantity": 675,
+     "market_value": 736762.5,
+     "weight_pct": 16.85,
+     "price": 1091.5,
+     "avg_cost": 792.5,
+     "total_cost": 534937.5
+    },
+    {
+     "name": "PI Industries Limited",
+     "isin": "INE603J01030",
+     "quantity": 200,
+     "market_value": 717900.0,
+     "weight_pct": 16.42,
+     "price": 3589.5,
+     "avg_cost": 2720.0,
+     "total_cost": 544000.0
+    },
+    {
+     "name": "Cholamandalam Investment and Finance Company Limited",
+     "isin": "INE121A01024",
+     "quantity": 485,
+     "market_value": 690640.0,
+     "weight_pct": 15.79,
+     "price": 1424.0,
+     "avg_cost": 1311.0,
+     "total_cost": 635835.0
+    },
+    {
+     "name": "ICICI Bank Limited",
+     "isin": "INE090A01021",
+     "quantity": 505,
+     "market_value": 633522.5,
+     "weight_pct": 14.49,
+     "price": 1254.5,
+     "avg_cost": 967.5,
+     "total_cost": 488587.5
+    },
+    {
+     "name": "UltraTech Cement Limited",
+     "isin": "INE481G01011",
+     "quantity": 45,
+     "market_value": 502807.5,
+     "weight_pct": 11.5,
+     "price": 11173.5,
+     "avg_cost": 8971.0,
+     "total_cost": 403695.0
+    }
+   ],
+   "transactions": [
+    {
+     "date": "2026-08-07",
+     "type": "buy",
+     "raw_type": "Purchase",
+     "security": "ICICI Bank Limited",
+     "isin": "INE090A01021",
+     "quantity": 115,
+     "price": 1254.5,
+     "amount": 144267.5
+    },
+    {
+     "date": "2026-08-12",
+     "type": "buy",
+     "raw_type": "Purchase",
+     "security": "UltraTech Cement Limited",
+     "isin": "INE481G01011",
+     "quantity": 145,
+     "price": 11173.5,
+     "amount": 1620157.5
+    },
+    {
+     "date": "2026-08-24",
+     "type": "dividend",
+     "raw_type": "Dividend",
+     "security": "Cholamandalam Investment and Finance Company Limited",
+     "isin": "INE121A01024",
+     "quantity": null,
+     "price": null,
+     "amount": 4700.0
+    },
+    {
+     "date": "2026-08-31",
+     "type": "fee",
+     "raw_type": "Fee",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 12500.0
+    }
+   ]
+  }
+ ]
+}

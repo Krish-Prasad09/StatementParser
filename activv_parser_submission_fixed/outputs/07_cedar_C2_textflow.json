@@ -1,0 +1,163 @@
+{
+  "file": "pms/07_cedar_C2_textflow.pdf",
+  "format_id": "cedar_pms_textflow",
+  "status": "validated",
+  "issues": [],
+  "statements": [
+    {
+      "statement": {
+        "provider": "Cedar Peak Asset Managers",
+        "strategy": "Cedar Peak Quality Compounders",
+        "client_id": "CP/PMS/0042",
+        "client_name": "Divya Nair",
+        "pan": "SAMPL3002G",
+        "period_start": "2026-08-01",
+        "period_end": "2026-08-31",
+        "currency": "INR"
+      },
+      "summary": {
+        "opening": 3460000.0,
+        "inflow": 300000.0,
+        "outflow": 0.0,
+        "gain": 48635.0,
+        "fee": 12500.0,
+        "cash": 114000.0,
+        "closing": 3796135.0,
+        "mgmt_fee": null,
+        "perf_fee": null,
+        "units": null,
+        "nav_per_unit": null
+      },
+      "holdings": [
+        {
+          "name": "Havells India Ltd",
+          "isin": "INE176B01034",
+          "quantity": 490.0,
+          "market_value": 892535.0,
+          "weight_pct": 23.51,
+          "price": 1821.5,
+          "avg_cost": 1406.5,
+          "total_cost": 689185.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Titan Co Ltd",
+          "isin": "INE280A01028",
+          "quantity": 195.0,
+          "market_value": 665437.5,
+          "weight_pct": 17.53,
+          "price": 3412.5,
+          "avg_cost": 2551.0,
+          "total_cost": 497445.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Tata Consultancy Services Ltd",
+          "isin": "INE467B01029",
+          "quantity": 150.0,
+          "market_value": 658950.0,
+          "weight_pct": 17.36,
+          "price": 4393.0,
+          "avg_cost": 4008.0,
+          "total_cost": 601200.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Axis Bank Ltd",
+          "isin": "INE238A01034",
+          "quantity": 405.0,
+          "market_value": 499567.5,
+          "weight_pct": 13.16,
+          "price": 1233.5,
+          "avg_cost": 893.0,
+          "total_cost": 361665.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Sun Pharmaceutical Inds Ltd",
+          "isin": "INE044A01036",
+          "quantity": 305.0,
+          "market_value": 485865.0,
+          "weight_pct": 12.8,
+          "price": 1593.0,
+          "avg_cost": 1339.5,
+          "total_cost": 408547.5,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Infosys Ltd",
+          "isin": "INE009A01021",
+          "quantity": 280.0,
+          "market_value": 479780.0,
+          "weight_pct": 12.64,
+          "price": 1713.5,
+          "avg_cost": 1379.0,
+          "total_cost": 386120.0,
+          "side": null,
+          "instrument": null
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2026-08-04",
+          "type": "inflow",
+          "raw_type": "FUNDS IN",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 300000.0
+        },
+        {
+          "date": "2026-08-13",
+          "type": "dividend",
+          "raw_type": "DIVIDEND",
+          "security": "Infosys Ltd",
+          "isin": "INE009A01021",
+          "quantity": null,
+          "price": null,
+          "amount": 3000.0
+        },
+        {
+          "date": "2026-08-21",
+          "type": "buy",
+          "raw_type": "PURCHASE",
+          "security": "Infosys Ltd",
+          "isin": "INE009A01021",
+          "quantity": 145.0,
+          "price": 1713.5,
+          "amount": 248457.5
+        },
+        {
+          "date": "2026-08-24",
+          "type": "dividend",
+          "raw_type": "DIVIDEND",
+          "security": "Havells India Ltd",
+          "isin": "INE176B01034",
+          "quantity": null,
+          "price": null,
+          "amount": 5700.0
+        },
+        {
+          "date": "2026-08-31",
+          "type": "fee",
+          "raw_type": "CHARGES",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 12500.0
+        }
+      ]
+    }
+  ],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "7521db08015e46e0e7cabd7888e596bc81b34334256ea0af11a6b7f0bde318ca"
+}

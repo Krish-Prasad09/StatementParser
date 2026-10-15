@@ -1,0 +1,135 @@
+{
+ "file": "pms/09_delta_D2_ledger.pdf",
+ "format_id": "delta_pms_ledger",
+ "scenario": "same format as 08; includes funds withdrawn",
+ "expected_status": "validated",
+ "expected_issues": [],
+ "notes": "",
+ "statements": [
+  {
+   "statement": {
+    "provider": "Delta Ridge Securities",
+    "strategy": "Delta Ridge Dynamic Alpha",
+    "client_id": "DR-55013",
+    "client_name": "Pooja Bansal",
+    "pan": "SAMPL4002J",
+    "period_start": "2026-08-01",
+    "period_end": "2026-08-31",
+    "currency": "INR"
+   },
+   "summary": {
+    "opening": 3100000.0,
+    "inflow": 0.0,
+    "outflow": 400000.0,
+    "gain": 79965.0,
+    "fee": 7400.0,
+    "cash": 84000.0,
+    "closing": 2772565.0
+   },
+   "holdings": [
+    {
+     "name": "Maruti Suzuki India Limited",
+     "isin": "INE585B01010",
+     "quantity": 55,
+     "market_value": 694155.0,
+     "weight_pct": 25.04,
+     "price": 12621.0,
+     "avg_cost": 11113.5,
+     "total_cost": 611242.5
+    },
+    {
+     "name": "ICICI Bank Limited",
+     "isin": "INE090A01021",
+     "quantity": 545,
+     "market_value": 632745.0,
+     "weight_pct": 22.82,
+     "price": 1161.0,
+     "avg_cost": 985.5,
+     "total_cost": 537097.5
+    },
+    {
+     "name": "Reliance Industries Limited",
+     "isin": "INE002A01018",
+     "quantity": 230,
+     "market_value": 608005.0,
+     "weight_pct": 21.93,
+     "price": 2643.5,
+     "avg_cost": 2395.0,
+     "total_cost": 550850.0
+    },
+    {
+     "name": "Bajaj Auto Limited",
+     "isin": "INE917I01010",
+     "quantity": 45,
+     "market_value": 398655.0,
+     "weight_pct": 14.38,
+     "price": 8859.0,
+     "avg_cost": 6569.0,
+     "total_cost": 295605.0
+    },
+    {
+     "name": "Axis Bank Limited",
+     "isin": "INE238A01034",
+     "quantity": 315,
+     "market_value": 355005.0,
+     "weight_pct": 12.8,
+     "price": 1127.0,
+     "avg_cost": 1059.5,
+     "total_cost": 333742.5
+    }
+   ],
+   "transactions": [
+    {
+     "date": "2026-08-10",
+     "type": "outflow",
+     "raw_type": "Funds withdrawn",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 400000.0
+    },
+    {
+     "date": "2026-08-17",
+     "type": "buy",
+     "raw_type": "Purchase",
+     "security": "Maruti Suzuki India Limited",
+     "isin": "INE585B01010",
+     "quantity": 115,
+     "price": 12571.0,
+     "amount": 1445665.0
+    },
+    {
+     "date": "2026-08-21",
+     "type": "dividend",
+     "raw_type": "Dividend received",
+     "security": "Bajaj Auto Limited",
+     "isin": "INE917I01010",
+     "quantity": null,
+     "price": null,
+     "amount": 3500.0
+    },
+    {
+     "date": "2026-08-27",
+     "type": "sell",
+     "raw_type": "Sale",
+     "security": "Reliance Industries Limited",
+     "isin": "INE002A01018",
+     "quantity": 85,
+     "price": 2593.5,
+     "amount": 220447.5
+    },
+    {
+     "date": "2026-08-31",
+     "type": "fee",
+     "raw_type": "Charges debited",
+     "security": null,
+     "isin": null,
+     "quantity": null,
+     "price": null,
+     "amount": 7400.0
+    }
+   ]
+  }
+ ]
+}

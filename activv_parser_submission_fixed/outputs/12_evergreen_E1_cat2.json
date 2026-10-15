@@ -1,0 +1,121 @@
+{
+  "file": "aif/12_evergreen_E1_cat2.pdf",
+  "format_id": "evergreen_aif_cat2",
+  "status": "validated",
+  "issues": [],
+  "statements": [
+    {
+      "statement": {
+        "provider": "Evergreen Alternatives",
+        "strategy": "Evergreen Special Situations Fund II",
+        "client_id": "EVG-AIF-4410",
+        "client_name": "Ananya Rao",
+        "pan": "SAMPL1001A",
+        "period_start": "2026-09-01",
+        "period_end": "2026-09-30",
+        "currency": "INR"
+      },
+      "summary": {
+        "opening": 5010000.0,
+        "inflow": 500000.0,
+        "outflow": 42000.0,
+        "gain": 148250.0,
+        "fee": 25000.0,
+        "cash": 224000.0,
+        "closing": 5591250.0,
+        "mgmt_fee": null,
+        "perf_fee": null,
+        "units": 250000.0,
+        "nav_per_unit": 22.365,
+        "missing_columns": [],
+        "cash_from_summary": 224000.0
+      },
+      "holdings": [
+        {
+          "name": "Helio Mobility Private Limited",
+          "isin": null,
+          "quantity": 33000.0,
+          "market_value": 1627000.0,
+          "weight_pct": 29.1,
+          "price": 49.303,
+          "avg_cost": 34.9091,
+          "total_cost": 1152000.0,
+          "side": null,
+          "instrument": "Convertible Notes"
+        },
+        {
+          "name": "Lumen Retail Private Limited",
+          "isin": null,
+          "quantity": 23000.0,
+          "market_value": 1506250.0,
+          "weight_pct": 26.94,
+          "price": 65.4891,
+          "avg_cost": 52.8261,
+          "total_cost": 1215000.0,
+          "side": null,
+          "instrument": "Pre-IPO Equity"
+        },
+        {
+          "name": "Verdant Foods Private Limited",
+          "isin": null,
+          "quantity": 24000.0,
+          "market_value": 1117000.0,
+          "weight_pct": 19.98,
+          "price": 46.5417,
+          "avg_cost": 32.5417,
+          "total_cost": 781000.0,
+          "side": null,
+          "instrument": "Series C CCPS"
+        },
+        {
+          "name": "Quanta Health Private Limited",
+          "isin": null,
+          "quantity": 30500.0,
+          "market_value": 1117000.0,
+          "weight_pct": 19.98,
+          "price": 36.623,
+          "avg_cost": 28.918,
+          "total_cost": 882000.0,
+          "side": null,
+          "instrument": "Series B CCPS"
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2026-09-10",
+          "type": "inflow",
+          "raw_type": "DRAWDOWN",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 500000.0
+        },
+        {
+          "date": "2026-09-28",
+          "type": "outflow",
+          "raw_type": "DISTRIBUTION",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 42000.0
+        },
+        {
+          "date": "2026-09-30",
+          "type": "fee",
+          "raw_type": "FEE",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 25000.0
+        }
+      ]
+    }
+  ],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "f7ad672f2ffbbb41aac180fc2498d047e79919a7854f3166bbeafc8fe46f3da5"
+}

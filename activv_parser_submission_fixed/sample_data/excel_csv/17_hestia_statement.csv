@@ -1,0 +1,35 @@
+Hestia Portfolio Services,Client Statement
+Client ID,HPS-3301
+Client Name,Imran Sheikh
+Strategy,Hestia Value Strategy
+Period,2026-09-01 to 2026-09-30
+Currency,INR
+
+SUMMARY
+Opening,5150000.0
+Inflows,250000.0
+Outflows,0.0
+Gain,158620.0
+Fees,12500.0
+Cash,165000.0
+Closing,5546120.0
+
+HOLDINGS
+Security,ISIN,Qty,Avg Cost,Price,Value,Weight %
+Cholamandalam Investment and Finance Company Limited,INE121A01024,695,1051.5,1314.0,913230.0,16.47
+Axis Bank Limited,INE238A01034,775,932.0,1147.5,889312.5,16.03
+Larsen & Toubro Limited,INE018A01030,220,3225.0,3601.0,792220.0,14.28
+UltraTech Cement Limited,INE481G01011,60,9592.5,12618.0,757080.0,13.65
+Maruti Suzuki India Limited,INE585B01010,55,12181.0,13036.5,717007.5,12.93
+Kotak Mahindra Bank Limited,INE237A01028,370,1553.0,1876.0,694120.0,12.52
+PI Industries Limited,INE603J01030,150,3477.0,4121.0,618150.0,11.15
+TOTAL,,2325,,,5546120.0,100.0
+
+TRANSACTIONS
+Date,Type,Security,Qty,Price,Amount
+2026-09-04,INFLOW,,,,250000.0
+2026-09-07,BUY,Larsen & Toubro Limited,135,3701.0,499635.0
+2026-09-17,SELL,Maruti Suzuki India Limited,130,12986.5,1688245.0
+2026-09-21,DIVIDEND,PI Industries Limited,,,2500.0
+2026-09-22,BUY,Cholamandalam Investment and Finance Company Limited,145,1314.0,190530.0
+2026-09-30,FEE,,,,-12500.0

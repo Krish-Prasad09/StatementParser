@@ -1,0 +1,9 @@
+{
+ "file": "edge_cases/25_neg_invoice.pdf",
+ "format_id": "none",
+ "scenario": "fee invoice with amount table, not a statement",
+ "expected_status": "not_a_statement",
+ "expected_issues": [],
+ "notes": "",
+ "statements": []
+}

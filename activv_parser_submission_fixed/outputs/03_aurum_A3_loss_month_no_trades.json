@@ -1,0 +1,104 @@
+{
+  "file": "pms/03_aurum_A3_loss_month_no_trades.pdf",
+  "format_id": "aurum_pms_monthly",
+  "status": "validated",
+  "issues": [],
+  "statements": [
+    {
+      "statement": {
+        "provider": "Aurum Capital PMS",
+        "strategy": "Aurum Multicap Growth",
+        "client_id": "AUR-100203",
+        "client_name": "Meera Iyer",
+        "pan": "SAMPL1003C",
+        "period_start": "2026-09-01",
+        "period_end": "2026-09-30",
+        "currency": "INR"
+      },
+      "summary": {
+        "opening": 2560000.0,
+        "inflow": 0.0,
+        "outflow": 0.0,
+        "gain": -52247.5,
+        "fee": 12500.0,
+        "cash": 125000.0,
+        "closing": 2495252.5,
+        "mgmt_fee": null,
+        "perf_fee": null,
+        "units": null,
+        "nav_per_unit": null,
+        "missing_columns": [],
+        "cash_from_summary": 125000.0,
+        "stated_equity": 2370252.5,
+        "cash_from_row": 125000.0,
+        "stated_nav": 2495252.5
+      },
+      "holdings": [
+        {
+          "name": "Kotak Mahindra Bank Limited",
+          "isin": "INE237A01028",
+          "quantity": 315.0,
+          "market_value": 657405.0,
+          "weight_pct": 26.35,
+          "price": 2087.0,
+          "avg_cost": 1543.5,
+          "total_cost": 486202.5,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Titan Company Limited",
+          "isin": "INE280A01028",
+          "quantity": 160.0,
+          "market_value": 578880.0,
+          "weight_pct": 23.2,
+          "price": 3618.0,
+          "avg_cost": 2964.0,
+          "total_cost": 474240.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Larsen & Toubro Limited",
+          "isin": "INE018A01030",
+          "quantity": 145.0,
+          "market_value": 571517.5,
+          "weight_pct": 22.9,
+          "price": 3941.5,
+          "avg_cost": 3698.5,
+          "total_cost": 536282.5,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Maruti Suzuki India Limited",
+          "isin": "INE585B01010",
+          "quantity": 50.0,
+          "market_value": 562450.0,
+          "weight_pct": 22.54,
+          "price": 11249.0,
+          "avg_cost": 9473.0,
+          "total_cost": 473650.0,
+          "side": null,
+          "instrument": null
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2026-09-30",
+          "type": "fee",
+          "raw_type": "FEE",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 12500.0
+        }
+      ]
+    }
+  ],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "091d8136d33ead0c44db0a627ef22459c7e437b33d6899d4ab32e37934d2bd4d"
+}

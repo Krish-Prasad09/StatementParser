@@ -1,0 +1,160 @@
+{
+  "file": "edge_cases/23_duplicate_of_01.pdf",
+  "format_id": "aurum_pms_monthly",
+  "status": "duplicate",
+  "issues": [
+    "identical_to:pms/01_aurum_A1_standard.pdf"
+  ],
+  "statements": [
+    {
+      "statement": {
+        "provider": "Aurum Capital PMS",
+        "strategy": "Aurum Multicap Growth",
+        "client_id": "AUR-100201",
+        "client_name": "Ananya Rao",
+        "pan": "SAMPL1001A",
+        "period_start": "2026-09-01",
+        "period_end": "2026-09-30",
+        "currency": "INR"
+      },
+      "summary": {
+        "opening": 3910000.0,
+        "inflow": 500000.0,
+        "outflow": 0.0,
+        "gain": 114417.5,
+        "fee": 12500.0,
+        "cash": 135000.0,
+        "closing": 4511917.5,
+        "mgmt_fee": null,
+        "perf_fee": null,
+        "units": null,
+        "nav_per_unit": null,
+        "missing_columns": [],
+        "cash_from_summary": 135000.0,
+        "stated_equity": 4376917.5,
+        "cash_from_row": 135000.0,
+        "stated_nav": 4511917.5
+      },
+      "holdings": [
+        {
+          "name": "UltraTech Cement Limited",
+          "isin": "INE481G01011",
+          "quantity": 80.0,
+          "market_value": 971160.0,
+          "weight_pct": 21.52,
+          "price": 12139.5,
+          "avg_cost": 9970.0,
+          "total_cost": 797600.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Kotak Mahindra Bank Limited",
+          "isin": "INE237A01028",
+          "quantity": 495.0,
+          "market_value": 857340.0,
+          "weight_pct": 19.0,
+          "price": 1732.0,
+          "avg_cost": 1597.0,
+          "total_cost": 790515.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Cholamandalam Investment and Finance Company Limited",
+          "isin": "INE121A01024",
+          "quantity": 545.0,
+          "market_value": 785890.0,
+          "weight_pct": 17.42,
+          "price": 1442.0,
+          "avg_cost": 1244.0,
+          "total_cost": 677980.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Sun Pharmaceutical Industries Limited",
+          "isin": "INE044A01036",
+          "quantity": 420.0,
+          "market_value": 657930.0,
+          "weight_pct": 14.58,
+          "price": 1566.5,
+          "avg_cost": 1274.0,
+          "total_cost": 535080.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Bharti Airtel Limited",
+          "isin": "INE397D01024",
+          "quantity": 385.0,
+          "market_value": 582890.0,
+          "weight_pct": 12.92,
+          "price": 1514.0,
+          "avg_cost": 1297.5,
+          "total_cost": 499537.5,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "PI Industries Limited",
+          "isin": "INE603J01030",
+          "quantity": 135.0,
+          "market_value": 521707.5,
+          "weight_pct": 11.56,
+          "price": 3864.5,
+          "avg_cost": 3226.0,
+          "total_cost": 435510.0,
+          "side": null,
+          "instrument": null
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2026-09-04",
+          "type": "inflow",
+          "raw_type": "INFLOW",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 500000.0
+        },
+        {
+          "date": "2026-09-04",
+          "type": "buy",
+          "raw_type": "BUY",
+          "security": "Cholamandalam Investment and Finance Company Limited",
+          "isin": "INE121A01024",
+          "quantity": 80.0,
+          "price": 1492.0,
+          "amount": 119360.0
+        },
+        {
+          "date": "2026-09-22",
+          "type": "dividend",
+          "raw_type": "DIVIDEND",
+          "security": "UltraTech Cement Limited",
+          "isin": "INE481G01011",
+          "quantity": null,
+          "price": null,
+          "amount": 3300.0
+        },
+        {
+          "date": "2026-09-30",
+          "type": "fee",
+          "raw_type": "FEE",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 12500.0
+        }
+      ]
+    }
+  ],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "9a4a2b6203fbd9ef66271655d938c96bfce4f76f4d6837dc402ed7a533bb8e77"
+}

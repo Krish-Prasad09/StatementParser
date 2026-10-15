@@ -1,0 +1,187 @@
+{
+  "file": "pms/06_cedar_C1_textflow.pdf",
+  "format_id": "cedar_pms_textflow",
+  "status": "validated",
+  "issues": [],
+  "statements": [
+    {
+      "statement": {
+        "provider": "Cedar Peak Asset Managers",
+        "strategy": "Cedar Peak Quality Compounders",
+        "client_id": "CP/PMS/0017",
+        "client_name": "Farhan Qureshi",
+        "pan": "SAMPL3001F",
+        "period_start": "2026-09-01",
+        "period_end": "2026-09-30",
+        "currency": "INR"
+      },
+      "summary": {
+        "opening": 5810000.0,
+        "inflow": 0.0,
+        "outflow": 0.0,
+        "gain": 179100.0,
+        "fee": 12500.0,
+        "cash": 180000.0,
+        "closing": 5976600.0,
+        "mgmt_fee": null,
+        "perf_fee": null,
+        "units": null,
+        "nav_per_unit": null
+      },
+      "holdings": [
+        {
+          "name": "ITC Ltd",
+          "isin": "INE154A01025",
+          "quantity": 2705.0,
+          "market_value": 1068475.0,
+          "weight_pct": 17.88,
+          "price": 395.0,
+          "avg_cost": 322.0,
+          "total_cost": 871010.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "PI Inds Ltd",
+          "isin": "INE603J01030",
+          "quantity": 225.0,
+          "market_value": 905850.0,
+          "weight_pct": 15.16,
+          "price": 4026.0,
+          "avg_cost": 3204.0,
+          "total_cost": 720900.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Havells India Ltd",
+          "isin": "INE176B01034",
+          "quantity": 580.0,
+          "market_value": 899870.0,
+          "weight_pct": 15.06,
+          "price": 1551.5,
+          "avg_cost": 1238.0,
+          "total_cost": 718040.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Reliance Inds Ltd",
+          "isin": "INE002A01018",
+          "quantity": 280.0,
+          "market_value": 787920.0,
+          "weight_pct": 13.18,
+          "price": 2814.0,
+          "avg_cost": 2670.0,
+          "total_cost": 747600.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Cholamandalam Inv & Fin Co Ltd",
+          "isin": "INE121A01024",
+          "quantity": 445.0,
+          "market_value": 604755.0,
+          "weight_pct": 10.12,
+          "price": 1359.0,
+          "avg_cost": 1043.5,
+          "total_cost": 464357.5,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "ICICI Bank Ltd",
+          "isin": "INE090A01021",
+          "quantity": 490.0,
+          "market_value": 549045.0,
+          "weight_pct": 9.19,
+          "price": 1120.5,
+          "avg_cost": 960.0,
+          "total_cost": 470400.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "HDFC Bank Ltd",
+          "isin": "INE040A01034",
+          "quantity": 320.0,
+          "market_value": 499680.0,
+          "weight_pct": 8.36,
+          "price": 1561.5,
+          "avg_cost": 1135.5,
+          "total_cost": 363360.0,
+          "side": null,
+          "instrument": null
+        },
+        {
+          "name": "Tata Consultancy Services Ltd",
+          "isin": "INE467B01029",
+          "quantity": 105.0,
+          "market_value": 481005.0,
+          "weight_pct": 8.05,
+          "price": 4581.0,
+          "avg_cost": 3672.0,
+          "total_cost": 385560.0,
+          "side": null,
+          "instrument": null
+        }
+      ],
+      "transactions": [
+        {
+          "date": "2026-09-14",
+          "type": "buy",
+          "raw_type": "PURCHASE",
+          "security": "Tata Consultancy Services Ltd",
+          "isin": "INE467B01029",
+          "quantity": 30.0,
+          "price": 4631.0,
+          "amount": 138930.0
+        },
+        {
+          "date": "2026-09-14",
+          "type": "sell",
+          "raw_type": "SALE",
+          "security": "ICICI Bank Ltd",
+          "isin": "INE090A01021",
+          "quantity": 75.0,
+          "price": 1070.5,
+          "amount": 80287.5
+        },
+        {
+          "date": "2026-09-21",
+          "type": "buy",
+          "raw_type": "PURCHASE",
+          "security": "Cholamandalam Inv & Fin Co Ltd",
+          "isin": "INE121A01024",
+          "quantity": 105.0,
+          "price": 1459.0,
+          "amount": 153195.0
+        },
+        {
+          "date": "2026-09-21",
+          "type": "dividend",
+          "raw_type": "DIVIDEND",
+          "security": "Havells India Ltd",
+          "isin": "INE176B01034",
+          "quantity": null,
+          "price": null,
+          "amount": 8900.0
+        },
+        {
+          "date": "2026-09-30",
+          "type": "fee",
+          "raw_type": "CHARGES",
+          "security": null,
+          "isin": null,
+          "quantity": null,
+          "price": null,
+          "amount": 12500.0
+        }
+      ]
+    }
+  ],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "6eba77644886cfb7ad5237d5288337b8c64d2c2c236d10f9f1bb5312d91ede63"
+}

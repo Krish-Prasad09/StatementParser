@@ -1,0 +1,101 @@
+{
+  "format_id": "hestia_pms_csv",
+  "version": 1,
+  "layout_kind": "csv_sectioned",
+  "provider_key": "hestia_pms",
+  "approved": true,
+  "fingerprint": {
+    "table_headers": [
+      "SUMMARY",
+      "HOLDINGS",
+      "Security | ISIN | Qty | Avg Cost | Price | Value | Weight %",
+      "TRANSACTIONS",
+      "Date | Type | Security | Qty | Price | Amount"
+    ],
+    "summary_headers": [],
+    "holdings_headers": [],
+    "transactions_headers": [],
+    "section_titles": [],
+    "sections": [
+      "SUMMARY",
+      "HOLDINGS",
+      "TRANSACTIONS"
+    ]
+  },
+  "fields": {
+    "provider": "Hestia Portfolio Services"
+  },
+  "period": {},
+  "summary": {
+    "has_gain": true,
+    "derive_fee_sum": false,
+    "mapping": {
+      "opening": "Opening",
+      "inflow": "Inflows",
+      "outflow": "Outflows",
+      "gain": "Gain",
+      "fee": "Fees",
+      "cash": "Cash",
+      "closing": "Closing"
+    },
+    "sections": [
+      "SUMMARY"
+    ]
+  },
+  "holdings": {
+    "mapping": {
+      "name": "Security",
+      "isin": "ISIN",
+      "quantity": "Qty",
+      "avg_cost": "Avg Cost",
+      "price": "Price",
+      "market_value": "Value",
+      "weight_pct": "Weight %"
+    },
+    "end_markers": [],
+    "total_row_labels": [
+      "Total",
+      "Total Equity",
+      "Grand Total"
+    ],
+    "cash_row_labels": [
+      "Cash",
+      "Cash Balance"
+    ],
+    "nav_row_labels": [],
+    "gross_long_labels": [],
+    "gross_short_labels": [],
+    "supports_short": false,
+    "is_unlisted": false,
+    "derive_price": false,
+    "derive_avg_cost": false,
+    "sections": [
+      "HOLDINGS"
+    ]
+  },
+  "transactions": {
+    "mapping": {
+      "date": "Date",
+      "raw_type": "Type",
+      "security": "Security",
+      "quantity": "Qty",
+      "price": "Price",
+      "amount": "Amount"
+    },
+    "end_markers": [],
+    "type_map": {
+      "INFLOW": "inflow",
+      "OUTFLOW": "outflow",
+      "BUY": "buy",
+      "SELL": "sell",
+      "DIVIDEND": "dividend",
+      "FEE": "fee"
+    },
+    "sections": [
+      "TRANSACTIONS"
+    ]
+  },
+  "learned_from": {
+    "sample": "sample_data/excel_csv/17_hestia_statement.csv"
+  }
+}

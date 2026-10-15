@@ -1,0 +1,13 @@
+{
+  "file": "edge_cases/18_scanned_aurum_A1.pdf",
+  "format_id": "none",
+  "status": "needs_review",
+  "issues": [
+    "no_text_layer_requires_ocr"
+  ],
+  "statements": [],
+  "notes": null,
+  "diagnostic_message": null,
+  "llm_calls_made": 0,
+  "sha256_hash": "e4e9ab04a69eaa994626b70d966b85b5c5214f561da48c09118bd08e735f8919"
+}

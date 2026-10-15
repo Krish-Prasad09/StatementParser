@@ -1,0 +1,11 @@
+{
+ "file": "edge_cases/21_broken_missing_page_banyan.pdf",
+ "format_id": "banyan_pms_quarterly",
+ "scenario": "page 2 of 2 missing: holdings continue on a page that is not there, no totals, no transactions",
+ "expected_status": "needs_review",
+ "expected_issues": [
+  "incomplete_document_missing_continuation_page"
+ ],
+ "notes": "Footer says Page 1 of 2 and holdings table ends with 'continued on next page'.",
+ "statements": []
+}
