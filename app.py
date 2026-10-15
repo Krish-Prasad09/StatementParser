@@ -668,26 +668,31 @@ elif view_mode == "⚠️ Quarantined Review Queue":
             "run financial audits, and immediately promote the statement into the portfolio."
         )
 
-        # Collect quarantined files
-        locked_files = []
+        # Collect quarantined files requiring passwords
+        pwd_locked = []
+        all_quarantined = []
         for row in db_review:
             issues = json.loads(row.get("issues_json") or "[]")
-            is_pwd = any("password" in str(i).lower() for i in issues)
             fpath = row.get("file_path", "")
             fname = os.path.basename(fpath)
-            locked_files.append({
+            item = {
                 "db_id": row["id"],
                 "file_path": fpath,
                 "label": f"DB #{row['id']}: {fname} ({', '.join(issues) if issues else 'needs_review'})",
-                "is_password_issue": is_pwd
-            })
+                "issues": issues,
+                "is_password_issue": any("password" in str(i).lower() for i in issues)
+            }
+            if item["is_password_issue"]:
+                pwd_locked.append(item)
+            else:
+                all_quarantined.append(item)
 
-        if locked_files:
-            # Sort with password issues first
-            locked_files.sort(key=lambda x: not x["is_password_issue"])
+        selectable_files = pwd_locked if pwd_locked else all_quarantined
+
+        if selectable_files:
             selected_locked = st.selectbox(
-                "Select Quarantined File to Unlock:",
-                options=locked_files,
+                "Select Quarantined Statement to Unlock:",
+                options=selectable_files,
                 format_func=lambda x: x["label"],
                 key="sb_locked_file"
             )
@@ -698,7 +703,7 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                     "Enter Document Password:",
                     type="password",
                     key=f"pwd_input_{selected_locked['db_id']}",
-                    placeholder="e.g. SecretPass123 or PAN"
+                    placeholder="Enter client statement password"
                 )
             with col_pwd2:
                 st.write("")
@@ -713,53 +718,24 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                     if not os.path.exists(target_file):
                         st.error(f"File not found on disk: {target_file}")
                     else:
-                        with st.spinner("Attempting decryption and processing statement..."):
+                        with st.spinner("Decrypting and processing statement through pipeline..."):
                             unlock_res = pipeline.process_file(target_file, password=entered_pwd)
 
-                        if "password_required" in unlock_res.issues or "pdf_crypto_dependency_missing" in unlock_res.issues or (unlock_res.status == "needs_review" and not unlock_res.statements):
-                            st.error("❌ Wrong password! The document could not be decrypted. Please verify the client password.")
+                        if "password_required" in unlock_res.issues or "pdf_crypto_dependency_missing" in unlock_res.issues:
+                            st.error("❌ Wrong password! Could not decrypt the PDF. Please verify the client password.")
                         else:
-                            # Update existing SQLite record
+                            # Update existing SQLite record and remove from quarantine
                             store.update_statement_status(selected_locked["db_id"], unlock_res)
-                            st.success(f"✅ Correct password! Statement successfully decrypted, audited ({unlock_res.status.upper()}), and extracted.")
-                            if unlock_res.statements:
-                                first_stmt = unlock_res.statements[0].statement
-                                st.info(f"Extracted portfolio for client: **{first_stmt.client_name}** (PAN: `{first_stmt.pan}`, Provider: `{first_stmt.provider}`)")
+                            if unlock_res.status == "validated":
+                                st.success(f"✅ Correct password! Statement successfully decrypted, audited (VALIDATED), and extracted (LLM calls: {unlock_res.llm_calls_made}).")
+                                if unlock_res.statements:
+                                    first_stmt = unlock_res.statements[0].statement
+                                    st.info(f"Promoted to portfolio for **{first_stmt.client_name}** (PAN: `{first_stmt.pan}`, Provider: `{first_stmt.provider}`).")
+                            else:
+                                st.warning(f"Decrypted, but quarantined with issues: {', '.join(unlock_res.issues)}")
                             st.rerun()
         else:
-            st.info("No quarantined files currently stored in database.")
-
-        # Interactive Password Encryption & Decryption Demo Expander
-        with st.expander("🧪 Test Password-Protected PDF Demo (Simulate Encrypted Statement)"):
-            st.markdown("""
-            **Evaluator Demonstration:**
-            Simulate an incoming encrypted statement PDF:
-            1. Click **🔒 Generate Encrypted Statement** below (creates an encrypted copy of `01_aurum_A1_standard.pdf` with password `SecretPass123`).
-            2. The system flags `password_required` and isolates it in the Review Queue.
-            3. Enter an incorrect password (e.g. `wrong123`) to see the safety rejection: *"❌ Wrong password!"*.
-            4. Enter `SecretPass123` to successfully unlock, audit, and extract the portfolio!
-            """)
-            if st.button("🔒 Generate & Quarantine Encrypted Statement", key="btn_demo_encrypt"):
-                with st.spinner("Generating password-protected PDF..."):
-                    import pypdf
-                    src_pdf = "sample_data/pms/01_aurum_A1_standard.pdf"
-                    if os.path.exists(src_pdf):
-                        reader = pypdf.PdfReader(src_pdf)
-                        writer = pypdf.PdfWriter()
-                        for page in reader.pages:
-                            writer.add_page(page)
-                        writer.encrypt("SecretPass123")
-                        out_enc_dir = "temp_attachments"
-                        os.makedirs(out_enc_dir, exist_ok=True)
-                        enc_pdf_path = os.path.join(out_enc_dir, "encrypted_aurum_demo.pdf")
-                        with open(enc_pdf_path, "wb") as f_out:
-                            writer.write(f_out)
-
-                        # Ingest without password to trigger quarantine
-                        enc_res = pipeline.process_file(enc_pdf_path)
-                        store.save_result(enc_res)
-                        st.warning(f"Encrypted statement ingested! Status: **{enc_res.status.upper()}** | Issues: `{enc_res.issues}` (Password is set to `SecretPass123`)")
-                        st.rerun()
+            st.info("No password-protected statements currently quarantined in the database.")
 
     with tab_audit_rules:
         st.subheader("Automated Financial Safety Gate Architecture")
