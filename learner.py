@@ -236,10 +236,13 @@ class FormatLearner:
         self._load_persisted_failures()
 
     def _load_persisted_failures(self):
-        if not self.db_path or not os.path.exists(self.db_path):
+        if not self.db_path:
             return
         try:
-            from persistence import StatementStore
+            from persistence import StatementStore, _is_pg_target
+            is_pg, _ = _is_pg_target(self.db_path)
+            if not is_pg and not os.path.exists(self.db_path):
+                return
             store = StatementStore(self.db_path)
             for rec in store.get_failed_learnings():
                 fid = rec.get("format_id")
@@ -272,14 +275,29 @@ class FormatLearner:
         return extract_and_redact_document_text(file_path)
 
     def has_template(self, format_id: str) -> bool:
-        """Checks if a validated template already exists on disk."""
+        """Checks the persistent store and the local template cache."""
         safe_id = re.sub(r"[^a-z0-9_]", "_", str(format_id).lower()).strip("_")
+        if self.db_path:
+            try:
+                from persistence import StatementStore
+                if StatementStore(self.db_path).get_template(safe_id):
+                    return True
+            except Exception:
+                pass
         path = os.path.join(self.templates_dir, f"{safe_id}.json")
         return os.path.exists(path)
 
     def load_template(self, format_id: str) -> Optional[Dict[str, Any]]:
-        """Loads an existing template."""
+        """Loads a template from persistent storage, then the local cache."""
         safe_id = re.sub(r"[^a-z0-9_]", "_", str(format_id).lower()).strip("_")
+        if self.db_path:
+            try:
+                from persistence import StatementStore
+                stored = StatementStore(self.db_path).get_template(safe_id)
+                if stored:
+                    return stored
+            except Exception:
+                pass
         path = os.path.join(self.templates_dir, f"{safe_id}.json")
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
@@ -496,17 +514,20 @@ STRICT RULES:
         fprint_hash = hashlib.sha256(json.dumps(features.get("table_headers", []), sort_keys=True).encode()).hexdigest()[:16]
         # A failed sample must not blacklist future layouts from the provider.
         # Suppression applies only to the exact structural fingerprint.
+        persisted_failure = None
+        if self.db_path:
+            try:
+                from persistence import StatementStore
+                persisted_failure = StatementStore(self.db_path).has_failed_learning(safe_id, fprint_hash)
+            except Exception:
+                pass
+
+        if persisted_failure:
+            self.failed_formats.add((safe_id, fprint_hash))
+            self.last_failure_issue = persisted_failure.get("failure_issue") or self.last_failure_issue
+            self.last_diagnostic_message = persisted_failure.get("diagnostic_message") or self.last_diagnostic_message
+
         if (safe_id, fprint_hash) in self.failed_formats:
-            if self.db_path:
-                try:
-                    from persistence import StatementStore
-                    store = StatementStore(self.db_path)
-                    rec = store.has_failed_learning(safe_id, fingerprint_hash=fprint_hash)
-                    if rec:
-                        self.last_failure_issue = rec.get("failure_issue") or self.last_failure_issue
-                        self.last_diagnostic_message = rec.get("diagnostic_message") or self.last_diagnostic_message
-                except Exception:
-                    pass
             return None, 0
 
         prompt = self.build_learning_prompt(safe_id, sample_file, features)
@@ -561,17 +582,36 @@ STRICT RULES:
             append_learning_log(safe_id, f"failed: {self.last_diagnostic_message}")
             return None, calls_used
 
-        out_path = os.path.join(self.templates_dir, f"{safe_id}.json")
         try:
-            with open(out_path, "w", encoding="utf-8") as f:
-                json.dump(candidate_tmpl, f, indent=2)
-            append_learning_log(safe_id, "success")
+            if self.db_path:
+                from persistence import StatementStore
+                StatementStore(self.db_path).save_template(candidate_tmpl)
         except Exception as e:
             self.last_failure_issue = "learning_failed_self_check"
-            self.last_diagnostic_message = f"file write error: {str(e)}"
-            self._persist_failure(safe_id, prov_slug, layout_slug, self.last_failure_issue, self.last_diagnostic_message)
+            self.last_diagnostic_message = f"template persistence error: {type(e).__name__}"
+            self._persist_failure(
+                safe_id, prov_slug, layout_slug, fprint_hash,
+                self.last_failure_issue, self.last_diagnostic_message
+            )
             append_learning_log(safe_id, f"failed: {self.last_diagnostic_message}")
             return None, calls_used
+
+        try:
+            out_path = os.path.join(self.templates_dir, f"{safe_id}.json")
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(candidate_tmpl, f, indent=2)
+        except OSError:
+            if not self.db_path:
+                self.last_failure_issue = "learning_failed_self_check"
+                self.last_diagnostic_message = "template file write failed"
+                self._persist_failure(
+                    safe_id, prov_slug, layout_slug, fprint_hash,
+                    self.last_failure_issue, self.last_diagnostic_message
+                )
+                append_learning_log(safe_id, f"failed: {self.last_diagnostic_message}")
+                return None, calls_used
+
+        append_learning_log(safe_id, "success")
 
         return candidate_tmpl, calls_used
 

@@ -43,7 +43,7 @@ class ProcessingPipeline:
         self._load_templates()
 
     def _load_templates(self):
-        """Loads all existing templates into fingerprinter."""
+        """Loads database templates and local templates into the fingerprinter."""
         templates_dict = {}
         if os.path.exists(self.templates_dir):
             for fname in os.listdir(self.templates_dir):
@@ -53,27 +53,39 @@ class ProcessingPipeline:
                         data = json.load(f)
                         fmt_id = data.get("format_id", fname[:-5])
                         templates_dict[fmt_id] = data
+        if self.store is not None:
+            for data in self.store.get_templates():
+                fmt_id = data.get("format_id")
+                if fmt_id:
+                    templates_dict[fmt_id] = data
         self.fingerprinter = FormatFingerprinter(templates_dict=templates_dict)
+
+    def persist_template(self, template: Dict[str, Any]) -> None:
+        """Persists a template to the database and mirrors it to the local cache."""
+        format_id = str(template.get("format_id") or "").strip()
+        if not format_id:
+            raise ValueError("A format template must include format_id")
+        if self.store is not None:
+            self.store.save_template(template)
+        path = os.path.join(self.templates_dir, f"{format_id}.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(template, f, indent=2)
+        self._load_templates()
 
     def approve_template(self, format_id: str) -> bool:
         """Approves/promotes a template so subsequent statements of that format parse cleanly with 0 LLM calls."""
-        tmpl_path = os.path.join(self.templates_dir, f"{format_id}.json")
-        updated = False
-        if os.path.exists(tmpl_path):
-            try:
-                with open(tmpl_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                data["approved"] = True
-                with open(tmpl_path, "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2)
-                updated = True
-            except Exception:
-                pass
+        data = self.learner.load_template(format_id)
+        if not data:
+            data = self.fingerprinter.templates.get(format_id)
+        if not data:
+            return False
+        data["approved"] = True
+        try:
+            self.persist_template(data)
+        except Exception:
+            return False
         self._load_templates()
-        if format_id in self.fingerprinter.templates:
-            self.fingerprinter.templates[format_id]["approved"] = True
-            updated = True
-        return updated
+        return format_id in self.fingerprinter.templates
 
     promote_template = approve_template
 

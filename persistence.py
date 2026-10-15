@@ -11,8 +11,11 @@ Ensures durable duplicate and revision tracking across restarts and supports the
 import sqlite3
 import json
 import os
+import hashlib
+import tempfile
 from contextlib import closing
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
 from models import ExtractionResult
@@ -87,6 +90,22 @@ def _create_tables_sqlite(conn: sqlite3.Connection):
         pass
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_statements_hash ON statements(sha256_hash);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_statements_status ON statements(status);")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS format_templates (
+        format_id TEXT PRIMARY KEY,
+        template_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    """)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS statement_artifacts (
+        file_path TEXT PRIMARY KEY,
+        sha256_hash TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        content BLOB NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    """)
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS email_events (
@@ -147,6 +166,20 @@ def _create_tables_pg(conn):
         );
         CREATE INDEX IF NOT EXISTS idx_statements_hash ON statements(sha256_hash);
         CREATE INDEX IF NOT EXISTS idx_statements_status ON statements(status);
+
+        CREATE TABLE IF NOT EXISTS format_templates (
+            format_id TEXT PRIMARY KEY,
+            template_json TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS statement_artifacts (
+            file_path TEXT PRIMARY KEY,
+            sha256_hash TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            content BYTEA NOT NULL,
+            created_at TEXT NOT NULL
+        );
 
         CREATE TABLE IF NOT EXISTS email_events (
             id SERIAL PRIMARY KEY,
@@ -212,6 +245,10 @@ class StatementStore:
 
     def save_result(self, result: ExtractionResult, sha256_hash: str = "") -> int:
         """Saves an ExtractionResult into the database with its SHA-256 content hash."""
+        if result.file and os.path.isfile(result.file):
+            if not self.save_statement_artifact(result.file):
+                raise RuntimeError("Could not persist the source statement artifact")
+
         effective_hash = sha256_hash or result.sha256_hash or ""
         if not effective_hash and result.file and os.path.exists(result.file):
             try:
@@ -329,7 +366,107 @@ class StatementStore:
         with closing(self._get_connection()) as conn:
             cursor = conn.cursor()
             self._execute(cursor, "SELECT * FROM statements WHERE status = 'needs_review' ORDER BY id DESC")
-            return [dict(row) for row in cursor.fetchall()]
+            rows = [dict(row) for row in cursor.fetchall()]
+
+        for row in rows:
+            restored_path = self.restore_statement_artifact(row.get("file_path", ""))
+            if restored_path:
+                row["file_path"] = restored_path
+        return rows
+
+    def save_statement_artifact(self, file_path: str) -> bool:
+        """Stores an ingested source file in the configured database for restart-safe review."""
+        if not file_path or not os.path.isfile(file_path):
+            return False
+        try:
+            with open(file_path, "rb") as stream:
+                content = stream.read()
+            digest = hashlib.sha256(content).hexdigest()
+            file_name = os.path.basename(file_path)
+            now_iso = datetime.now(timezone.utc).isoformat()
+            with closing(self._get_connection()) as conn:
+                cursor = conn.cursor()
+                self._execute(cursor, """
+                    INSERT INTO statement_artifacts (file_path, sha256_hash, file_name, content, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(file_path) DO UPDATE SET
+                        sha256_hash = excluded.sha256_hash,
+                        file_name = excluded.file_name,
+                        content = excluded.content,
+                        created_at = excluded.created_at
+                """, (file_path, digest, file_name, content, now_iso))
+                conn.commit()
+            return True
+        except Exception:
+            return False
+
+    def restore_statement_artifact(self, file_path: str) -> Optional[str]:
+        """Returns an existing source path or materializes its durable DB copy to temp storage."""
+        if not file_path:
+            return None
+        if os.path.isfile(file_path):
+            return file_path
+
+        with closing(self._get_connection()) as conn:
+            cursor = conn.cursor()
+            self._execute(cursor, """
+                SELECT sha256_hash, file_name, content
+                FROM statement_artifacts WHERE file_path = ?
+            """, (file_path,))
+            row = cursor.fetchone()
+        if not row:
+            return None
+
+        digest = row["sha256_hash"]
+        suffix = Path(row["file_name"]).suffix
+        restore_dir = os.path.join(tempfile.gettempdir(), "activv_statement_artifacts")
+        os.makedirs(restore_dir, exist_ok=True)
+        restored_path = os.path.join(restore_dir, f"{digest}{suffix}")
+        if not os.path.isfile(restored_path):
+            temp_path = f"{restored_path}.tmp"
+            with open(temp_path, "wb") as stream:
+                stream.write(bytes(row["content"]))
+            os.replace(temp_path, restored_path)
+        return restored_path
+
+    def save_template(self, template: Dict[str, Any]) -> None:
+        """Persists a validated format template in the configured database."""
+        format_id = str(template.get("format_id") or "").strip()
+        if not format_id:
+            raise ValueError("A format template must include format_id")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with closing(self._get_connection()) as conn:
+            cursor = conn.cursor()
+            self._execute(cursor, """
+                INSERT INTO format_templates (format_id, template_json, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(format_id) DO UPDATE SET
+                    template_json = excluded.template_json,
+                    updated_at = excluded.updated_at
+            """, (format_id, json.dumps(template), now_iso))
+            conn.commit()
+
+    def get_template(self, format_id: str) -> Optional[Dict[str, Any]]:
+        with closing(self._get_connection()) as conn:
+            cursor = conn.cursor()
+            self._execute(cursor, "SELECT template_json FROM format_templates WHERE format_id = ?", (format_id,))
+            row = cursor.fetchone()
+        return json.loads(row["template_json"]) if row else None
+
+    def get_templates(self) -> List[Dict[str, Any]]:
+        with closing(self._get_connection()) as conn:
+            cursor = conn.cursor()
+            self._execute(cursor, "SELECT template_json FROM format_templates ORDER BY format_id")
+            rows = cursor.fetchall()
+        return [json.loads(row["template_json"]) for row in rows]
+
+    def delete_templates(self) -> int:
+        with closing(self._get_connection()) as conn:
+            cursor = conn.cursor()
+            self._execute(cursor, "DELETE FROM format_templates")
+            count = cursor.rowcount
+            conn.commit()
+        return count
 
     def get_validated(self) -> List[Dict[str, Any]]:
         """Retrieves all successfully validated statements."""
@@ -583,13 +720,14 @@ class StatementStore:
         with closing(self._get_connection()) as conn:
             cursor = conn.cursor()
             if self.is_pg:
-                cursor.execute("TRUNCATE TABLE statements, email_events, failed_learning_attempts RESTART IDENTITY CASCADE")
+                cursor.execute("TRUNCATE TABLE statements, statement_artifacts, email_events, failed_learning_attempts RESTART IDENTITY CASCADE")
             else:
                 cursor.execute("DELETE FROM statements")
+                cursor.execute("DELETE FROM statement_artifacts")
                 cursor.execute("DELETE FROM email_events")
                 cursor.execute("DELETE FROM failed_learning_attempts")
                 try:
-                    cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('statements', 'email_events', 'failed_learning_attempts')")
+                    cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('statements', 'statement_artifacts', 'email_events', 'failed_learning_attempts')")
                 except Exception:
                     pass
             conn.commit()

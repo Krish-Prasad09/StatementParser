@@ -214,7 +214,7 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("⚙️ Storage & Maintenance")
 import glob
 import shutil
-stored_templates = [f for f in glob.glob("templates/*.json")]
+stored_templates = pipeline.fingerprinter.templates
 st.sidebar.caption(f"📁 Learned Templates in `templates/`: **{len(stored_templates)}**")
 
 db_stmts_count = len(store.get_all())
@@ -231,6 +231,7 @@ if st.sidebar.button("🧹 Clean Stored Templates (Cold Start)", help="Delete le
             deleted_count += 1
         except Exception:
             pass
+    deleted_count = max(deleted_count, store.delete_templates())
     st.cache_resource.clear()
     st.sidebar.info(f"Cleaned {deleted_count} template(s). Engine reset to Cold Start!")
     st.rerun()
@@ -260,6 +261,7 @@ if st.sidebar.button("💥 Reset Everything (Cold Start + Wipe DB)", help="Clean
         except Exception:
             pass
     store.clear()
+    store.delete_templates()
     try:
         p = get_pipeline()
         p.ingestion.seen_hashes.clear()
@@ -609,24 +611,17 @@ elif view_mode == "⚠️ Quarantined Review Queue":
             "allowing subsequent statements from this provider to parse deterministically with 0 LLM calls."
         )
 
-        # Discover candidate templates in templates/
+        # Discover candidate templates from durable storage and the local cache.
         cand_templates = []
-        import glob
-        for tf_path in sorted(glob.glob("templates/*.json")):
-            try:
-                with open(tf_path, "r", encoding="utf-8") as f:
-                    t_data = json.load(f)
-                f_id = t_data.get("format_id", os.path.splitext(os.path.basename(tf_path))[0])
-                cand_templates.append({
-                    "path": tf_path,
-                    "format_id": f_id,
-                    "approved": t_data.get("approved", True),
-                    "provider": t_data.get("fields", {}).get("provider") or f_id,
-                    "layout_kind": t_data.get("layout_kind", "ruled_table"),
-                    "data": t_data
-                })
-            except Exception:
-                pass
+        for f_id, t_data in sorted(pipeline.fingerprinter.templates.items()):
+            cand_templates.append({
+                "path": os.path.join("templates", f"{f_id}.json"),
+                "format_id": f_id,
+                "approved": t_data.get("approved", True),
+                "provider": t_data.get("fields", {}).get("provider") or f_id,
+                "layout_kind": t_data.get("layout_kind", "ruled_table"),
+                "data": t_data
+            })
 
         if cand_templates:
             cand_fmt_ids = [c["format_id"] for c in cand_templates]
@@ -679,15 +674,11 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                 with st.spinner("Ingesting and auditing 10_aurum_v2_layout_drift.pdf..."):
                     import shutil
                     v2_src = "test_fixtures/templates/aurum_pms_monthly_v2.json"
-                    v2_dst = "templates/aurum_pms_monthly_v2.json"
-                    if os.path.exists(v2_src) and not os.path.exists(v2_dst):
-                        shutil.copy(v2_src, v2_dst)
-                        with open(v2_dst, "r", encoding="utf-8") as f:
+                    if "aurum_pms_monthly_v2" not in pipeline.fingerprinter.templates and os.path.exists(v2_src):
+                        with open(v2_src, "r", encoding="utf-8") as f:
                             v2_data = json.load(f)
                         v2_data["approved"] = False
-                        with open(v2_dst, "w", encoding="utf-8") as f:
-                            json.dump(v2_data, f, indent=2)
-                        pipeline._load_templates()
+                        pipeline.persist_template(v2_data)
 
                     drift_res = pipeline.process_file("sample_data/pms/10_aurum_v2_layout_drift.pdf")
                     store.save_result(drift_res)
