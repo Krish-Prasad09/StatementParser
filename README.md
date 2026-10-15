@@ -118,7 +118,7 @@ streamlit run app.py
 ```
 *Dashboard features:*
 - **📤 Live Email Dispatch & Ingest:** Upload or select any statement to send it as an email to your mailbox and trigger automated ingestion.
-- **⚙️ Seed Fixtures / Cold Start:** One-click buttons in the sidebar to populate `templates/` with the 9 verified fixture templates (for instant zero-LLM testing) or clear `templates/` to demonstrate cold-start LLM learning.
+- **📬 Mailbox Operations & Review Queue:** Inspect the complete audit trail of received emails, quarantined exceptions, and consolidated client portfolios.
 
 
 ---

@@ -202,7 +202,7 @@ def main():
         to_email=args.to
     )
 
-    if res.status == "success":
+    if res.get("status") == "success":
         print("\n✅ Email sent successfully!")
         print(f"  To:         {res['recipient']}")
         print(f"  Subject:    {res['subject']}")

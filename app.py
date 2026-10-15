@@ -190,33 +190,6 @@ if st.sidebar.button("🔄 Check Inbox Now", key="btn_sidebar_poll"):
         st.rerun()
 
 st.sidebar.markdown("---")
-# Template Management & Cold-Start Controls
-st.sidebar.subheader("⚙️ Templates & Cold Start")
-import glob, shutil
-current_templates = [f for f in glob.glob("templates/*.json")]
-st.sidebar.caption(f"Learned Templates in `templates/`: **{len(current_templates)}**")
-
-col_t1, col_t2 = st.sidebar.columns(2)
-with col_t1:
-    if st.sidebar.button("📥 Seed Fixtures", help="Copy 9 validated templates from test_fixtures/ to templates/ for instant zero-LLM testing"):
-        for f in glob.glob("test_fixtures/templates/*.json"):
-            shutil.copy(f, "templates/")
-        st.cache_resource.clear()
-        st.sidebar.success("Seeded 9 templates!")
-        st.rerun()
-
-with col_t2:
-    if st.sidebar.button("🧹 Cold Start", help="Delete templates in templates/ to test cold-start LLM learning"):
-        for f in glob.glob("templates/*.json"):
-            try:
-                os.remove(f)
-            except Exception:
-                pass
-        st.cache_resource.clear()
-        st.sidebar.info("Cleared templates/")
-        st.rerun()
-
-st.sidebar.markdown("---")
 view_mode = st.sidebar.radio(
     "Navigation",
     [
