@@ -479,4 +479,8 @@ class StatementStore:
             cursor.execute("DELETE FROM statements")
             cursor.execute("DELETE FROM email_events")
             cursor.execute("DELETE FROM failed_learning_attempts")
+            try:
+                cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('statements', 'email_events', 'failed_learning_attempts')")
+            except Exception:
+                pass
             conn.commit()

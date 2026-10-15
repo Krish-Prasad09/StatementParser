@@ -210,13 +210,18 @@ if st.sidebar.button("🔄 Check Inbox Now", key="btn_sidebar_poll"):
         st.rerun()
 
 st.sidebar.markdown("---")
-# Cold Start: Clean Stored Templates
-st.sidebar.subheader("⚙️ Stored Templates")
+# Storage & Maintenance: Templates & Database
+st.sidebar.subheader("⚙️ Storage & Maintenance")
 import glob
+import shutil
 stored_templates = [f for f in glob.glob("templates/*.json")]
-st.sidebar.caption(f"Learned Templates in `templates/`: **{len(stored_templates)}**")
+st.sidebar.caption(f"📁 Learned Templates in `templates/`: **{len(stored_templates)}**")
 
-if st.sidebar.button("🧹 Clean Stored Templates (Cold Start)", help="Delete learned JSON templates in templates/ to reset the engine to cold-start mode"):
+db_stmts_count = len(store.get_all())
+db_emails_count = len(store.get_email_events())
+st.sidebar.caption(f"💾 Database Records (`statements.db`): **{db_stmts_count}** stmts, **{db_emails_count}** emails")
+
+if st.sidebar.button("🧹 Clean Stored Templates (Cold Start)", help="Delete learned JSON templates in templates/ so the AI learns PDF formats from scratch on next upload"):
     deleted_count = 0
     for f in glob.glob("templates/*.json"):
         try:
@@ -226,6 +231,45 @@ if st.sidebar.button("🧹 Clean Stored Templates (Cold Start)", help="Delete le
             pass
     st.cache_resource.clear()
     st.sidebar.info(f"Cleaned {deleted_count} template(s). Engine reset to Cold Start!")
+    st.rerun()
+
+if st.sidebar.button("🗑️ Reset Database Records (Wipe History)", help="Clear statements.db so Validated Statements, Needs Review, Duplicates, and Email Events all reset to 0"):
+    store.clear()
+    try:
+        p = get_pipeline()
+        p.ingestion.seen_hashes.clear()
+        p.ingestion.seen_statements.clear()
+        p.processed_history.clear()
+    except Exception:
+        pass
+    if os.path.exists("temp_emails"):
+        shutil.rmtree("temp_emails", ignore_errors=True)
+    st.cache_resource.clear()
+    st.session_state.pop("last_poll_result", None)
+    st.sidebar.success("Database records wiped! All statement and email counters reset to 0.")
+    st.rerun()
+
+if st.sidebar.button("💥 Reset Everything (Cold Start + Wipe DB)", help="Cleans both templates/ and clears statements.db to start completely from zero"):
+    deleted_count = 0
+    for f in glob.glob("templates/*.json"):
+        try:
+            os.remove(f)
+            deleted_count += 1
+        except Exception:
+            pass
+    store.clear()
+    try:
+        p = get_pipeline()
+        p.ingestion.seen_hashes.clear()
+        p.ingestion.seen_statements.clear()
+        p.processed_history.clear()
+    except Exception:
+        pass
+    if os.path.exists("temp_emails"):
+        shutil.rmtree("temp_emails", ignore_errors=True)
+    st.cache_resource.clear()
+    st.session_state.pop("last_poll_result", None)
+    st.sidebar.success("Full reset complete! Both templates and database counters are at 0.")
     st.rerun()
 
 st.sidebar.markdown("---")
