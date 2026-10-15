@@ -472,107 +472,106 @@ elif view_mode == "💼 Client Portfolio Consolidation":
             target_currency=target_currency
         )
 
+        if consolidated:
+            st.subheader(f"Portfolio of {consolidated.client_name} (PAN: `{consolidated.pan}`)")
+            st.caption(f"Consolidated as of {consolidated.period} ({consolidated.currency})")
 
-    if consolidated:
-        st.subheader(f"Portfolio of {consolidated.client_name} (PAN: `{consolidated.pan}`)")
-        st.caption(f"Consolidated as of {consolidated.period} ({consolidated.currency})")
+            # Top Metrics
+            p1, p2, p3, p4 = st.columns(4)
+            curr_symbol = "₹" if consolidated.currency == "INR" else "$"
+            p1.metric("Total Corpus", f"{curr_symbol} {consolidated.total_corpus:,.2f}")
+            p2.metric("Total Cash", f"{curr_symbol} {consolidated.total_cash:,.2f}")
+            p3.metric("Custodians Joined", len(consolidated.participating_providers))
+            p4.metric("Statements Consolidated", consolidated.raw_statements_count)
 
-        # Top Metrics
-        p1, p2, p3, p4 = st.columns(4)
-        curr_symbol = "₹" if consolidated.currency == "INR" else "$"
-        p1.metric("Total Corpus", f"{curr_symbol} {consolidated.total_corpus:,.2f}")
-        p2.metric("Total Cash", f"{curr_symbol} {consolidated.total_cash:,.2f}")
-        p3.metric("Custodians Joined", len(consolidated.participating_providers))
-        p4.metric("Statements Consolidated", consolidated.raw_statements_count)
+            st.markdown(f"**Participating Wealth Managers:** {', '.join(consolidated.participating_providers)}")
 
-        st.markdown(f"**Participating Wealth Managers:** {', '.join(consolidated.participating_providers)}")
+            st.markdown("---")
 
-        st.markdown("---")
+            # Asset Allocation
+            st.subheader("Asset Allocation")
+            alloc_cols = st.columns(3)
+            for idx, (asset_class, pct) in enumerate(consolidated.asset_allocation.items()):
+                alloc_cols[idx].metric(asset_class, f"{pct:.2f}%")
 
-        # Asset Allocation
-        st.subheader("Asset Allocation")
-        alloc_cols = st.columns(3)
-        for idx, (asset_class, pct) in enumerate(consolidated.asset_allocation.items()):
-            alloc_cols[idx].metric(asset_class, f"{pct:.2f}%")
+            # Allocation Bar
+            df_alloc = pd.DataFrame([consolidated.asset_allocation])
+            st.bar_chart(df_alloc)
 
-        # Allocation Bar
-        df_alloc = pd.DataFrame([consolidated.asset_allocation])
-        st.bar_chart(df_alloc)
+            st.markdown("---")
 
-        st.markdown("---")
+            tab_cross_provider, tab_joined_isin, tab_aif = st.tabs([
+                "📑 Multi-Provider Holdings Ledger (Client / Provider / Security / Value)",
+                "📌 Unified Holdings (Joined by ISIN across Custodians)",
+                "🔒 AIF Alternative Holdings (Private Equity / Venture)"
+            ])
 
-        tab_cross_provider, tab_joined_isin, tab_aif = st.tabs([
-            "📑 Multi-Provider Holdings Ledger (Client / Provider / Security / Value)",
-            "📌 Unified Holdings (Joined by ISIN across Custodians)",
-            "🔒 AIF Alternative Holdings (Private Equity / Venture)"
-        ])
+            with tab_cross_provider:
+                st.subheader("📑 Consolidated Investments Across All Providers")
+                st.markdown("Line-by-line holding breakdown tagging every asset to its specific wealth manager / custodian.")
+                provider_rows = []
+                for r in all_raw_results:
+                    for s in r.statements:
+                        if s.statement.pan == target_pan:
+                            p_name = s.statement.provider or r.format_id
+                            for h in s.holdings:
+                                provider_rows.append({
+                                    "Client": s.statement.client_name,
+                                    "Provider / Custodian": p_name,
+                                    "Security": h.name,
+                                    "ISIN": h.isin or "Unlisted / AIF",
+                                    "Quantity": f"{h.quantity:,.2f}" if h.quantity else "-",
+                                    "Market Value": f"{curr_symbol} {h.market_value:,.2f}"
+                                })
+                if provider_rows:
+                    st.dataframe(pd.DataFrame(provider_rows), use_container_width=True)
+                else:
+                    st.info("No holding records found for this client.")
 
-        with tab_cross_provider:
-            st.subheader("📑 Consolidated Investments Across All Providers")
-            st.markdown("Line-by-line holding breakdown tagging every asset to its specific wealth manager / custodian.")
-            provider_rows = []
-            for r in all_raw_results:
-                for s in r.statements:
-                    if s.statement.pan == target_pan:
-                        p_name = s.statement.provider or r.format_id
-                        for h in s.holdings:
-                            provider_rows.append({
-                                "Client": s.statement.client_name,
-                                "Provider / Custodian": p_name,
-                                "Security": h.name,
-                                "ISIN": h.isin or "Unlisted / AIF",
-                                "Quantity": f"{h.quantity:,.2f}" if h.quantity else "-",
-                                "Market Value": f"{curr_symbol} {h.market_value:,.2f}"
-                            })
-            if provider_rows:
-                st.dataframe(pd.DataFrame(provider_rows), use_container_width=True)
-            else:
-                st.info("No holding records found for this client.")
+            with tab_joined_isin:
+                st.subheader("📌 Listed Equities (Joined Across Custodians by ISIN)")
+                cross_custodian = [h for h in consolidated.listed_holdings if len(h.providers_held_in) > 1]
+                if cross_custodian:
+                    joined_desc = "; ".join([f"**{h.name}** ({h.isin}) joined across {', '.join(h.providers_held_in)}" for h in cross_custodian])
+                    st.info(f"Cross-custodian holdings identified: {joined_desc}")
+                else:
+                    st.caption("No overlapping securities held across multiple custodians.")
 
-        with tab_joined_isin:
-            st.subheader("📌 Listed Equities (Joined Across Custodians by ISIN)")
-            cross_custodian = [h for h in consolidated.listed_holdings if len(h.providers_held_in) > 1]
-            if cross_custodian:
-                joined_desc = "; ".join([f"**{h.name}** ({h.isin}) joined across {', '.join(h.providers_held_in)}" for h in cross_custodian])
-                st.info(f"Cross-custodian holdings identified: {joined_desc}")
-            else:
-                st.caption("No overlapping securities held across multiple custodians.")
+                listed_rows = []
+                for h in consolidated.listed_holdings:
+                    listed_rows.append({
+                        "ISIN": h.isin,
+                        "Security": h.name,
+                        "Quantity": h.quantity,
+                        "Market Value": f"{curr_symbol} {h.market_value:,.2f}",
+                        "Held With": ", ".join(h.providers_held_in)
+                    })
+                st.dataframe(pd.DataFrame(listed_rows), use_container_width=True)
 
-            listed_rows = []
-            for h in consolidated.listed_holdings:
-                listed_rows.append({
-                    "ISIN": h.isin,
-                    "Security": h.name,
-                    "Quantity": h.quantity,
-                    "Market Value": f"{curr_symbol} {h.market_value:,.2f}",
-                    "Held With": ", ".join(h.providers_held_in)
-                })
-            st.dataframe(pd.DataFrame(listed_rows), use_container_width=True)
+            with tab_aif:
+                st.subheader("🔒 AIF Alternative Holdings (Unlisted Bucket)")
+                st.markdown("Private equity and venture assets that do not carry public ISIN identifiers.")
 
-        with tab_aif:
-            st.subheader("🔒 AIF Alternative Holdings (Unlisted Bucket)")
-            st.markdown("Private equity and venture assets that do not carry public ISIN identifiers.")
+                aif_rows = []
+                for a in consolidated.aif_holdings:
+                    name = a.get("name", "") if isinstance(a, dict) else getattr(a, "name", "")
+                    qty = a.get("quantity", 0) if isinstance(a, dict) else getattr(a, "quantity", 0)
+                    mv = a.get("market_value", 0.0) if isinstance(a, dict) else getattr(a, "market_value", 0.0)
+                    prov = a.get("provider", "") if isinstance(a, dict) else getattr(a, "provider", "")
+                    aif_rows.append({
+                        "Security / Fund": name,
+                        "Quantity / Units": qty,
+                        "Valuation (INR)": f"₹ {mv:,.2f}",
+                        "Custodian": prov
+                    })
+                st.dataframe(pd.DataFrame(aif_rows), use_container_width=True)
 
-            aif_rows = []
-            for a in consolidated.aif_holdings:
-                name = a.get("name", "") if isinstance(a, dict) else getattr(a, "name", "")
-                qty = a.get("quantity", 0) if isinstance(a, dict) else getattr(a, "quantity", 0)
-                mv = a.get("market_value", 0.0) if isinstance(a, dict) else getattr(a, "market_value", 0.0)
-                prov = a.get("provider", "") if isinstance(a, dict) else getattr(a, "provider", "")
-                aif_rows.append({
-                    "Security / Fund": name,
-                    "Quantity / Units": qty,
-                    "Valuation (INR)": f"₹ {mv:,.2f}",
-                    "Custodian": prov
-                })
-            st.dataframe(pd.DataFrame(aif_rows), use_container_width=True)
+            if consolidated.excluded_statements:
+                with st.expander(f"Excluded Statements Log ({len(consolidated.excluded_statements)} items)"):
+                    st.dataframe(pd.DataFrame(consolidated.excluded_statements), use_container_width=True)
 
-        if consolidated.excluded_statements:
-            with st.expander(f"Excluded Statements Log ({len(consolidated.excluded_statements)} items)"):
-                st.dataframe(pd.DataFrame(consolidated.excluded_statements), use_container_width=True)
-
-    else:
-        st.warning(f"No validated statements found for PAN '{target_pan}' as of {target_date}.")
+        else:
+            st.warning(f"No validated statements found for PAN '{target_pan}' as of {target_date}.")
 # -----------------------------------------------------------------------------
 # VIEW 3: Quarantined Review Queue
 # -----------------------------------------------------------------------------
