@@ -812,70 +812,39 @@ elif view_mode == "📤 Live Email Dispatch & Ingest":
 
     st.subheader("📤 Dispatch Statement Email to Mailbox")
     st.markdown(
-        "Upload any statement file or select a sample statement. "
-        "The system sends it via SMTP with a randomized realistic subject to `IMAP_USER`, then polls the inbox via IMAP to ingest it end-to-end."
+        "Upload any statement file (PDF, XLSX, CSV). The system dispatches it as an email via SMTP to `IMAP_USER`, "
+        "then immediately polls the inbox via IMAP to ingest, audit, and extract it end-to-end."
     )
 
-    upload_source = st.radio(
-        "Statement Source:",
-        ["Upload Custom Statement File", "Select Sample Statement"],
-        horizontal=True
-    )
-
-    target_file_path = None
-    target_file_name = ""
-
-    if upload_source == "Upload Custom Statement File":
-        uploaded_file = st.file_uploader("Drop statement file here (PDF, XLSX, CSV):", type=["pdf", "xlsx", "csv"])
-        if uploaded_file is not None:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
-                tmp.write(uploaded_file.getvalue())
-                target_file_path = tmp.name
-                target_file_name = uploaded_file.name
-    else:
-        sample_docs = [
-            "sample_data/pms/01_aurum_A1_standard.pdf",
-            "sample_data/pms/04_banyan_B1_quarterly_2pages.pdf",
-            "sample_data/pms/08_delta_D1_ledger.pdf",
-            "sample_data/aif/12_evergreen_E1_cat2.pdf",
-            "sample_data/excel_csv/16_hestia_statement.xlsx",
-            "sample_data/excel_csv/17_hestia_statement.csv",
-            "sample_data/edge_cases/18_scanned_aurum_A1.pdf",
-            "sample_data/edge_cases/19_broken_totals_aurum.pdf",
-            "sample_data/edge_cases/20_broken_rollforward_cedar.pdf",
-            "sample_data/edge_cases/22_broken_isin_delta.pdf",
-            "sample_data/edge_cases/24_neg_factsheet.pdf"
-        ]
-        selected_sample = st.selectbox("Select Sample Document:", sample_docs)
-        target_file_path = selected_sample
-        target_file_name = os.path.basename(selected_sample)
+    uploaded_file = st.file_uploader("Upload Statement File (PDF, XLSX, CSV):", type=["pdf", "xlsx", "csv"])
 
     custom_subject = st.text_input(
         "Custom Email Subject (optional - leave blank to generate a random realistic subject):",
         placeholder="e.g. Your PMS Portfolio Statement for September 2026"
     )
 
-    col_btn1, col_btn2 = st.columns([1, 1])
-    with col_btn1:
-        send_and_ingest = st.button("🚀 Send Email & Trigger Ingestion", type="primary")
-    with col_btn2:
-        send_only = st.button("✉️ Send Email Only (Test Poller from Terminal)")
+    send_and_ingest = st.button("🚀 Send Email & Trigger Ingestion", type="primary")
 
-    if target_file_path and (send_and_ingest or send_only):
-        from send_test_email import send_statement_email
-        with st.spinner("Connecting to SMTP server (smtp.gmail.com) and dispatching email..."):
-            mail_res = send_statement_email(
-                file_path=target_file_path,
-                subject=custom_subject.strip() if custom_subject else None
-            )
+    if send_and_ingest:
+        if uploaded_file is None:
+            st.warning("Please upload a statement file first.")
+        else:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
+                tmp.write(uploaded_file.getvalue())
+                target_file_path = tmp.name
+                target_file_name = uploaded_file.name
 
-        if mail_res.get("status") == "success":
-            st.success(f"✅ Email successfully sent via SMTP to `{mail_res['recipient']}`!")
-            st.markdown(f"**Subject:** `{mail_res['subject']}`  \n**Attachment:** `{mail_res['attachment']}`")
+            from send_test_email import send_statement_email
+            with st.spinner("Connecting to SMTP server (smtp.gmail.com) and dispatching email..."):
+                mail_res = send_statement_email(
+                    file_path=target_file_path,
+                    subject=custom_subject.strip() if custom_subject else None
+                )
 
-            if send_only:
-                st.info("💡 Email is now waiting in your inbox! Run `python watch_mailbox.py --once` in your terminal to see the worker pick it up.")
-            elif send_and_ingest:
+            if mail_res.get("status") == "success":
+                st.success(f"✅ Email successfully sent via SMTP to `{mail_res['recipient']}`!")
+                st.markdown(f"**Subject:** `{mail_res['subject']}`  \n**Attachment:** `{mail_res['attachment']}`")
+
                 with st.spinner("Waiting for email in mailbox, polling via IMAP, and executing pipeline..."):
                     import time
                     time.sleep(2)
@@ -911,7 +880,7 @@ elif view_mode == "📤 Live Email Dispatch & Ingest":
                         st.info("Statement processed; check the Mailbox Operations tab to view all event records.")
                 else:
                     st.error(f"Mailbox polling notice: {poll_summary.get('message')}")
-        else:
-            st.error(f"Failed to dispatch email: {mail_res.get('error')}")
-            st.info("Check IMAP_USER and IMAP_PASSWORD in your `.env` file.")
+            else:
+                st.error(f"Failed to dispatch email: {mail_res.get('error')}")
+                st.info("Check IMAP_USER and IMAP_PASSWORD in your `.env` file.")
 
