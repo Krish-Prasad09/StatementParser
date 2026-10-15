@@ -430,6 +430,8 @@ STRICT RULES:
 
         gemini_key = os.environ.get("GEMINI_API_KEY")
         openai_key = os.environ.get("OPENAI_API_KEY")
+        max_attempts = 2
+
         if gemini_key:
             model_name = os.environ.get("LLM_MODEL", "gemini-2.5-flash")
             headers = {
@@ -441,21 +443,37 @@ STRICT RULES:
                 "generationConfig": {"response_mime_type": "application/json"}
             }
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
-            self.actual_http_calls += 1
-            try:
-                resp = requests.post(url, headers=headers, json=payload, timeout=(10, 90))
-                if resp.status_code == 200:
-                    data = resp.json()
-                    raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
-                    clean_json = extract_first_json_object(raw_text)
-                    return json.loads(clean_json)
-                else:
-                    self.last_diagnostic_message = f"HTTP {resp.status_code}"
-                    logging.warning(_scrub_log_message(f"Gemini API ({model_name}) request failed with status {resp.status_code}"))
-            except Exception as e:
-                self.last_diagnostic_message = f"transport error: {type(e).__name__}"
-                logging.warning(_scrub_log_message(f"Gemini API ({model_name}) error: {type(e).__name__}"))
-            return None
+
+            for attempt in range(1, max_attempts + 1):
+                self.actual_http_calls += 1
+                try:
+                    resp = requests.post(url, headers=headers, json=payload, timeout=(10, 90))
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+                        clean_json = extract_first_json_object(raw_text)
+                        return json.loads(clean_json)
+                    elif resp.status_code in (429, 500, 502, 503, 504) and attempt < max_attempts:
+                        self.last_diagnostic_message = f"HTTP {resp.status_code} (attempt {attempt})"
+                        logging.warning(_scrub_log_message(
+                            f"Gemini API ({model_name}) busy/rate-limited with status {resp.status_code}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
+                        ))
+                        time.sleep(3.0)
+                        continue
+                    else:
+                        self.last_diagnostic_message = f"HTTP {resp.status_code}"
+                        logging.warning(_scrub_log_message(f"Gemini API ({model_name}) request failed with status {resp.status_code}"))
+                except Exception as e:
+                    if attempt < max_attempts:
+                        self.last_diagnostic_message = f"transport error: {type(e).__name__} (attempt {attempt})"
+                        logging.warning(_scrub_log_message(
+                            f"Gemini API ({model_name}) transport error: {type(e).__name__}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
+                        ))
+                        time.sleep(3.0)
+                        continue
+                    self.last_diagnostic_message = f"transport error: {type(e).__name__}"
+                    logging.warning(_scrub_log_message(f"Gemini API ({model_name}) error: {type(e).__name__}"))
+                return None
 
         if openai_key:
             model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
@@ -472,20 +490,36 @@ STRICT RULES:
                 ],
                 "response_format": {"type": "json_object"}
             }
-            self.actual_http_calls += 1
-            try:
-                resp = requests.post(url, headers=headers, json=payload, timeout=(10, 90))
-                if resp.status_code == 200:
-                    data = resp.json()
-                    raw_text = data["choices"][0]["message"]["content"]
-                    clean_json = extract_first_json_object(raw_text)
-                    return json.loads(clean_json)
-                else:
-                    self.last_diagnostic_message = f"HTTP {resp.status_code}"
-                    logging.warning(_scrub_log_message(f"OpenAI API request failed with status {resp.status_code}"))
-            except Exception as e:
-                self.last_diagnostic_message = f"transport error: {type(e).__name__}"
-            return None
+
+            for attempt in range(1, max_attempts + 1):
+                self.actual_http_calls += 1
+                try:
+                    resp = requests.post(url, headers=headers, json=payload, timeout=(10, 90))
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        raw_text = data["choices"][0]["message"]["content"]
+                        clean_json = extract_first_json_object(raw_text)
+                        return json.loads(clean_json)
+                    elif resp.status_code in (429, 500, 502, 503, 504) and attempt < max_attempts:
+                        self.last_diagnostic_message = f"HTTP {resp.status_code} (attempt {attempt})"
+                        logging.warning(_scrub_log_message(
+                            f"OpenAI API busy with status {resp.status_code}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
+                        ))
+                        time.sleep(3.0)
+                        continue
+                    else:
+                        self.last_diagnostic_message = f"HTTP {resp.status_code}"
+                        logging.warning(_scrub_log_message(f"OpenAI API request failed with status {resp.status_code}"))
+                except Exception as e:
+                    if attempt < max_attempts:
+                        self.last_diagnostic_message = f"transport error: {type(e).__name__} (attempt {attempt})"
+                        logging.warning(_scrub_log_message(
+                            f"OpenAI API transport error: {type(e).__name__}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
+                        ))
+                        time.sleep(3.0)
+                        continue
+                    self.last_diagnostic_message = f"transport error: {type(e).__name__}"
+                return None
 
         if not gemini_key and not openai_key:
             self.last_diagnostic_message = "no API key configured"
