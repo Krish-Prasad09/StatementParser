@@ -435,14 +435,17 @@ elif view_mode == "💼 Client Portfolio Consolidation":
             except Exception:
                 pass
 
-    # If SQLite has few or no records, supplement with sample statements
-    # so multi-custodian consolidation (e.g., Ananya Rao SAMPL1001A across Aurum, Delta, Evergreen) is viewable
-    if len(all_raw_results) < 3:
+    # If store has few or no records, supplement with sample statements
+    # so multi-custodian and multi-client consolidation is immediately viewable
+    if len(all_raw_results) < 5:
         sample_consolidation_files = [
             "sample_data/pms/01_aurum_A1_standard.pdf",
             "sample_data/pms/08_delta_D1_ledger.pdf",
             "sample_data/aif/12_evergreen_E1_cat2.pdf",
-            "sample_data/pms/04_banyan_B1_quarterly_2pages.pdf"
+            "sample_data/pms/04_banyan_B1_quarterly_2pages.pdf",
+            "sample_data/excel_csv/16_hestia_statement.xlsx",
+            "sample_data/excel_csv/17_hestia_statement.csv",
+            "sample_data/pms/11_aurum_multi_client_2in1.pdf"
         ]
         for fpath in sample_consolidation_files:
             if os.path.exists(fpath):
@@ -451,13 +454,14 @@ elif view_mode == "💼 Client Portfolio Consolidation":
                     all_raw_results.append(sample_res)
                     seen_hashes.add(sample_res.sha256_hash)
 
-    # Dynamically discover all unique client PANs in results
-    discovered_pans = sorted(list(set(
-        stmt.statement.pan
-        for r in all_raw_results
-        for stmt in r.statements
-        if stmt.statement.pan
-    )))
+    # Dynamically build PAN-to-Name map and unique client PANs
+    pan_to_name = {}
+    for r in all_raw_results:
+        for stmt in r.statements:
+            if stmt.statement.pan:
+                pan_to_name[stmt.statement.pan] = stmt.statement.client_name or "Client"
+
+    discovered_pans = sorted(list(pan_to_name.keys()))
     discovered_dates = sorted(list(set(
         stmt.statement.period_end
         for r in all_raw_results
@@ -468,7 +472,11 @@ elif view_mode == "💼 Client Portfolio Consolidation":
     col_in1, col_in2, col_in3 = st.columns(3)
     with col_in1:
         if discovered_pans:
-            target_pan = st.selectbox("Client PAN Number:", discovered_pans)
+            target_pan = st.selectbox(
+                "Select Client (PAN & Name):",
+                options=discovered_pans,
+                format_func=lambda p: f"{p} — {pan_to_name.get(p, 'Client')}"
+            )
         else:
             target_pan = st.text_input("Client PAN Number:", value="")
     with col_in2:
