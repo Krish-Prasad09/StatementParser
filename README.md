@@ -118,6 +118,7 @@ streamlit run app.py
 ```
 *Dashboard features:*
 - **📤 Live Email Dispatch & Ingest:** Upload or select any statement to send it as an email to your mailbox and trigger automated ingestion.
+- **🧹 Clean Stored Templates (Cold Start):** One-click button in the sidebar to delete learned JSON templates in `templates/` and reset the engine to cold-start mode.
 - **📬 Mailbox Operations & Review Queue:** Inspect the complete audit trail of received emails, quarantined exceptions, and consolidated client portfolios.
 
 

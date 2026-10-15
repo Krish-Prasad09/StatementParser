@@ -190,6 +190,25 @@ if st.sidebar.button("🔄 Check Inbox Now", key="btn_sidebar_poll"):
         st.rerun()
 
 st.sidebar.markdown("---")
+# Cold Start: Clean Stored Templates
+st.sidebar.subheader("⚙️ Stored Templates")
+import glob
+stored_templates = [f for f in glob.glob("templates/*.json")]
+st.sidebar.caption(f"Learned Templates in `templates/`: **{len(stored_templates)}**")
+
+if st.sidebar.button("🧹 Clean Stored Templates (Cold Start)", help="Delete learned JSON templates in templates/ to reset the engine to cold-start mode"):
+    deleted_count = 0
+    for f in glob.glob("templates/*.json"):
+        try:
+            os.remove(f)
+            deleted_count += 1
+        except Exception:
+            pass
+    st.cache_resource.clear()
+    st.sidebar.info(f"Cleaned {deleted_count} template(s). Engine reset to Cold Start!")
+    st.rerun()
+
+st.sidebar.markdown("---")
 view_mode = st.sidebar.radio(
     "Navigation",
     [
