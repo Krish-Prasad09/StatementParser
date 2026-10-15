@@ -16,6 +16,30 @@ import tempfile
 import pandas as pd
 import streamlit as st
 
+# 1. Page Configuration (Must be the very first Streamlit call)
+st.set_page_config(
+    page_title="Activv Money | PMS & AIF Statement Parser",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# 2. Synchronize Streamlit Cloud secrets to os.environ for seamless cloud deployment
+try:
+    if hasattr(st, "secrets"):
+        for k, v in st.secrets.items():
+            if isinstance(v, str) and k not in os.environ:
+                os.environ[k] = v
+except Exception:
+    pass
+
+# Load local .env file as fallback if present
+try:
+    from send_test_email import load_env
+    load_env()
+except Exception:
+    pass
+
 from pipeline import ProcessingPipeline
 from consolidator import PortfolioConsolidator
 from ingestion import IngestionEngine
@@ -33,14 +57,6 @@ if "mailbox_polled_at_startup" not in st.session_state:
         st.session_state["last_poll_result"] = poll_res
     except Exception as e:
         st.session_state["last_poll_result"] = {"status": "error", "count": 0, "message": str(e)}
-
-# Page Configuration
-st.set_page_config(
-    page_title="Activv Money | PMS & AIF Statement Parser",
-    page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Custom Styling
 st.markdown("""
