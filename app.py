@@ -219,7 +219,9 @@ st.sidebar.caption(f"📁 Learned Templates in `templates/`: **{len(stored_templ
 
 db_stmts_count = len(store.get_all())
 db_emails_count = len(store.get_email_events())
-st.sidebar.caption(f"💾 Database Records (`statements.db`): **{db_stmts_count}** stmts, **{db_emails_count}** emails")
+db_type = "Neon PostgreSQL (Cloud ☁️)" if getattr(store, "is_pg", False) else "SQLite (`statements.db` 💾)"
+st.sidebar.caption(f"🗄️ Database: **{db_type}**")
+st.sidebar.caption(f"📊 Records: **{db_stmts_count}** stmts, **{db_emails_count}** emails")
 
 if st.sidebar.button("🧹 Clean Stored Templates (Cold Start)", help="Delete learned JSON templates in templates/ so the AI learns PDF formats from scratch on next upload"):
     deleted_count = 0
