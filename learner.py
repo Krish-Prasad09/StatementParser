@@ -319,6 +319,10 @@ STRICT RULES:
 - Return ONLY a valid JSON object matching the FormatTemplate schema.
 - NEVER include any client names, PANs, mobile numbers, ISINs, or monetary amounts in the template.
 - Map the document's exact summary headers, holdings headers/regex, and transaction headers/type_map.
+- In summary: if the document's summary table has no Net Gain/(Loss) column, set "has_gain": false.
+- In holdings: ensure total_row_labels includes all total and subtotal labels appearing at the bottom of the table (e.g. ["Total Equity", "Subtotal Listed Equities", "Total Listed Equities"]).
+- In holdings: ensure cash_row_labels includes cash labels (e.g. ["Liquid Cash Reserve", "Cash & Bank Balance"]).
+- In holdings: if there is no Market Price column (only avg cost and market value), set "derive_price": true.
 """
 
     def validate_template_schema_and_pii(self, candidate_tmpl: Any) -> Tuple[bool, str]:
