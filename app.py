@@ -190,13 +190,40 @@ if st.sidebar.button("🔄 Check Inbox Now", key="btn_sidebar_poll"):
         st.rerun()
 
 st.sidebar.markdown("---")
+# Template Management & Cold-Start Controls
+st.sidebar.subheader("⚙️ Templates & Cold Start")
+import glob, shutil
+current_templates = [f for f in glob.glob("templates/*.json")]
+st.sidebar.caption(f"Learned Templates in `templates/`: **{len(current_templates)}**")
+
+col_t1, col_t2 = st.sidebar.columns(2)
+with col_t1:
+    if st.sidebar.button("📥 Seed Fixtures", help="Copy 9 validated templates from test_fixtures/ to templates/ for instant zero-LLM testing"):
+        for f in glob.glob("test_fixtures/templates/*.json"):
+            shutil.copy(f, "templates/")
+        st.cache_resource.clear()
+        st.sidebar.success("Seeded 9 templates!")
+        st.rerun()
+
+with col_t2:
+    if st.sidebar.button("🧹 Cold Start", help="Delete templates in templates/ to test cold-start LLM learning"):
+        for f in glob.glob("templates/*.json"):
+            try:
+                os.remove(f)
+            except Exception:
+                pass
+        st.cache_resource.clear()
+        st.sidebar.info("Cleared templates/")
+        st.rerun()
+
+st.sidebar.markdown("---")
 view_mode = st.sidebar.radio(
     "Navigation",
     [
         "📬 Mailbox Ingestion & Operations",
         "💼 Client Portfolio Consolidation",
         "⚠️ Quarantined Review Queue",
-        "📁 Direct Statement Upload"
+        "📤 Live Email Dispatch & Ingest"
     ]
 )
 
@@ -546,20 +573,130 @@ elif view_mode == "⚠️ Quarantined Review Queue":
 
 
 # -----------------------------------------------------------------------------
-# VIEW 4: Direct Statement Upload & Ingestion
+# VIEW 4: Live Statement Email Dispatcher & Ingestion
 # -----------------------------------------------------------------------------
-elif view_mode == "📁 Direct Statement Upload":
-    st.title("📁 Direct Statement Upload & Ingestion")
-    st.markdown("Test end-to-end automated ingestion via **Email Gatekeeper & Ingestion** or **Direct Statement Drag-and-Drop**.")
+elif view_mode == "📤 Live Email Dispatch & Ingest":
+    st.title("📤 Live Statement Email Dispatcher & Mailbox Ingestion")
+    st.markdown(
+        "Upload any statement file (PDF, Excel, CSV) to **dispatch it as a realistic email via SMTP** to your configured mailbox, "
+        "then automatically trigger the IMAP poller and Ingestion Gatekeeper to audit, parse, and persist it."
+    )
 
-    tab_email, tab_direct = st.tabs(["✉️ Email Inbox Simulator & Gatekeeper", "📄 Direct Statement Upload"])
+    tab_dispatch, tab_eml = st.tabs(["🚀 Live Mailbox Email Dispatcher", "✉️ Offline .eml Email File Simulator"])
 
-    # --- TAB A: Email Inbox Simulator ---
-    with tab_email:
-        st.subheader("✉️ Automated Email Gatekeeper")
+    # --- TAB A: Live Mailbox Email Dispatcher ---
+    with tab_dispatch:
+        st.subheader("📤 Dispatch Statement Email to Mailbox")
         st.markdown(
-            "Upload an `.eml` email or select a sample email. "
-            "The gatekeeper determines whether to **INGEST** (real statement attached) or **IGNORE** (marketing noise / portal links)."
+            "Upload any statement file or select a sample statement. "
+            "The system sends it via SMTP with a randomized realistic subject to `IMAP_USER`, then polls the inbox via IMAP to ingest it end-to-end."
+        )
+
+        upload_source = st.radio(
+            "Statement Source:",
+            ["Upload Custom Statement File", "Select Sample Statement"],
+            horizontal=True
+        )
+
+        target_file_path = None
+        target_file_name = ""
+
+        if upload_source == "Upload Custom Statement File":
+            uploaded_file = st.file_uploader("Drop statement file here (PDF, XLSX, CSV):", type=["pdf", "xlsx", "csv"])
+            if uploaded_file is not None:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
+                    tmp.write(uploaded_file.getvalue())
+                    target_file_path = tmp.name
+                    target_file_name = uploaded_file.name
+        else:
+            sample_docs = [
+                "sample_data/pms/01_aurum_A1_standard.pdf",
+                "sample_data/pms/04_banyan_B1_quarterly_2pages.pdf",
+                "sample_data/pms/08_delta_D1_ledger.pdf",
+                "sample_data/aif/12_evergreen_E1_cat2.pdf",
+                "sample_data/excel_csv/16_hestia_statement.xlsx",
+                "sample_data/excel_csv/17_hestia_statement.csv",
+                "sample_data/edge_cases/18_scanned_aurum_A1.pdf",
+                "sample_data/edge_cases/19_broken_totals_aurum.pdf",
+                "sample_data/edge_cases/20_broken_rollforward_cedar.pdf",
+                "sample_data/edge_cases/22_broken_isin_delta.pdf",
+                "sample_data/edge_cases/24_neg_factsheet.pdf"
+            ]
+            selected_sample = st.selectbox("Select Sample Document:", sample_docs)
+            target_file_path = selected_sample
+            target_file_name = os.path.basename(selected_sample)
+
+        custom_subject = st.text_input(
+            "Custom Email Subject (optional - leave blank to generate a random realistic subject):",
+            placeholder="e.g. Your PMS Portfolio Statement for September 2026"
+        )
+
+        col_btn1, col_btn2 = st.columns([1, 1])
+        with col_btn1:
+            send_and_ingest = st.button("🚀 Send Email & Trigger Ingestion", type="primary")
+        with col_btn2:
+            send_only = st.button("✉️ Send Email Only (Test Poller from Terminal)")
+
+        if target_file_path and (send_and_ingest or send_only):
+            from send_test_email import send_statement_email
+            with st.spinner("Connecting to SMTP server (smtp.gmail.com) and dispatching email..."):
+                mail_res = send_statement_email(
+                    file_path=target_file_path,
+                    subject=custom_subject.strip() if custom_subject else None
+                )
+
+            if mail_res.get("status") == "success":
+                st.success(f"✅ Email successfully sent via SMTP to `{mail_res['recipient']}`!")
+                st.markdown(f"**Subject:** `{mail_res['subject']}`  \n**Attachment:** `{mail_res['attachment']}`")
+
+                if send_only:
+                    st.info("💡 Email is now waiting in your inbox! Run `python watch_mailbox.py --once` in your terminal to see the worker pick it up.")
+                elif send_and_ingest:
+                    with st.spinner("Waiting for email in mailbox, polling via IMAP, and executing pipeline..."):
+                        import time
+                        time.sleep(2)
+                        poll_summary = safe_poll_inbox(db_path="statements.db")
+
+                    st.markdown("---")
+                    st.markdown("### 📬 Mailbox Ingestion & Parsing Result")
+                    if poll_summary.get("status") == "success":
+                        st.success(f"Mailbox poller processed {poll_summary.get('count', 0)} new incoming email(s)!")
+                        recent_stmts = store.get_all()
+                        if recent_stmts:
+                            latest_stmt_row = recent_stmts[0]
+                            m1, m2, m3 = st.columns(3)
+                            m1.metric("Pipeline Status", latest_stmt_row.get("status", "").upper())
+                            m2.metric("Format Matched", latest_stmt_row.get("format_id") or "None")
+                            m3.metric("LLM Calls Used", latest_stmt_row.get("llm_calls_made", 0))
+
+                            issues_list = json.loads(latest_stmt_row.get("issues_json", "[]"))
+                            if issues_list:
+                                st.warning(f"Auditor Issues: {', '.join(issues_list)}")
+
+                            rec_json_raw = latest_stmt_row.get("record_json")
+                            if rec_json_raw:
+                                rec_data = json.loads(rec_json_raw)
+                                st.json(rec_data)
+                                st.download_button(
+                                    label="📥 Download Extracted Statement JSON",
+                                    data=json.dumps(rec_data, indent=2),
+                                    file_name=f"{target_file_name}.json",
+                                    mime="application/json"
+                                )
+                        else:
+                            st.info("Statement processed; check the Mailbox Operations tab to view all event records.")
+                    else:
+                        st.error(f"Mailbox polling notice: {poll_summary.get('message')}")
+            else:
+                st.error(f"Failed to dispatch email: {mail_res.get('error')}")
+                st.info("Check IMAP_USER and IMAP_PASSWORD in your `.env` file.")
+
+    # --- TAB B: Offline .eml Email File Simulator ---
+    with tab_eml:
+        st.subheader("✉️ Automated Email Gatekeeper Simulator (.eml)")
+        st.markdown(
+            "Upload an `.eml` email file or select a sample email. "
+            "The gatekeeper determines whether to **INGEST** (statement attached), **IGNORE** (marketing noise / portal links), or **QUARANTINE**."
         )
 
         email_mode = st.radio(
@@ -621,7 +758,6 @@ elif view_mode == "📁 Direct Statement Upload":
                     elif reason == "portal_link_no_attachment":
                         st.info("💡 **Gatekeeper Rationale:** Statement is hosted behind a secure web portal link with no raw attachment. Filtered to prevent parsing empty content.")
 
-                # If attachments exist and status is ingest, parse them!
                 if attachments and status == "ingest":
                     st.markdown("---")
                     st.subheader(f"📎 Extracted Attachments ({len(attachments)}) & Pipeline Execution")
@@ -652,76 +788,3 @@ elif view_mode == "📁 Direct Statement Upload":
                                 )
                         else:
                             st.info("No statement records produced (file was quarantined or rejected).")
-
-    # --- TAB B: Direct Statement Upload ---
-    with tab_direct:
-        st.subheader("📄 Direct Statement Upload (PDF, Excel, CSV)")
-        st.markdown("Drop any PMS or AIF statement directly into the engine for deterministic parsing.")
-
-        upload_source = st.radio(
-            "Statement Source:",
-            ["Upload Custom File", "Select Sample Statement"],
-            horizontal=True
-        )
-
-        target_file_path = None
-        target_file_name = ""
-
-        if upload_source == "Upload Custom File":
-            uploaded_file = st.file_uploader("Drop statement file here:", type=["pdf", "xlsx", "csv"])
-            if uploaded_file is not None:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
-                    tmp.write(uploaded_file.getvalue())
-                    target_file_path = tmp.name
-                    target_file_name = uploaded_file.name
-        else:
-            sample_docs = [
-                "pms/01_aurum_A1_standard.pdf",
-                "pms/04_banyan_B1_quarterly_2pages.pdf",
-                "pms/08_delta_D1_ledger.pdf",
-                "aif/12_evergreen_E1_cat2.pdf",
-                "excel_csv/16_hestia_statement.xlsx",
-                "excel_csv/17_hestia_statement.csv",
-                "edge_cases/18_scanned_aurum_A1.pdf",
-                "edge_cases/19_broken_totals_aurum.pdf",
-                "edge_cases/20_broken_rollforward_cedar.pdf",
-                "edge_cases/22_broken_isin_delta.pdf"
-            ]
-            selected_sample = st.selectbox("Select Sample Document:", sample_docs)
-            target_file_path = os.path.join("sample_data", selected_sample)
-            target_file_name = os.path.basename(selected_sample)
-
-        if target_file_path:
-            if st.button("🚀 Parse Statement"):
-                with st.spinner("Executing Pipeline (Ingestion ➔ Fingerprinting ➔ Parsing ➔ Auditor)..."):
-                    res = pipeline.process_file(target_file_path)
-                    try:
-                        store.save_result(res)
-                    except Exception:
-                        pass
-
-                st.markdown("---")
-                st.markdown("### 📊 Extraction & Audit Result")
-
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Status", res.status.upper())
-                c2.metric("Format Identified", res.format_id or "None")
-                c3.metric("LLM Calls", res.llm_calls_made)
-                c4.metric("Extracted Accounts", len(res.statements))
-
-                if res.issues:
-                    st.error(f"⚠️ **Quarantine Issues Detected:** {', '.join(res.issues)}")
-
-                if res.statements:
-                    for idx, stmt in enumerate(res.statements):
-                        render_statement_view(stmt, account_idx=idx + 1)
-                        json_str = json.dumps(stmt.model_dump(), indent=2)
-                        st.download_button(
-                            label=f"📥 Download Extracted JSON ({target_file_name})",
-                            data=json_str,
-                            file_name=f"{target_file_name}.json",
-                            mime="application/json",
-                            key=f"dl_direct_{idx}"
-                        )
-                else:
-                    st.warning("No statement records extracted. Document was safely quarantined or deduplicated by the financial safety gate.")

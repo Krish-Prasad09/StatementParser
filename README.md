@@ -39,6 +39,7 @@ Built for the **Activv Money Internship Assignment** (Newcamp Finserv).
 ├── watch_mailbox.py     # Resilient IMAP poller with per-email try/except, reconnect, and EML processor
 ├── pipeline.py          # End-to-end orchestration pipeline
 ├── app.py               # Interactive Streamlit dashboard backed by SQLite persistence
+├── send_test_email.py   # Utility to dispatch test statement emails via SMTP to the mailbox
 ├── requirements.txt     # All third-party Python dependencies
 ├── manifest.csv          # Test inventory: each sample file and its expected result
 ├── docs/                 # Design, limitations, and AI-usage documentation
@@ -98,14 +99,16 @@ python tests/test_edge_cases.py
 ### 4. Run the Mailbox Poller & Review Queue Handler
 *Note:* The IMAP mailbox polling logic (`watch_mailbox.py`) was tested with comprehensive mocks in unit test suites unless explicitly configured with live credentials.
 
-```bash
-# Process a local .eml file against persistent SQLite state:
-python watch_mailbox.py --test-eml sample_data/emails/e01_statement_single_attachment.eml
+# 1. Dispatch a test statement email via SMTP to the mailbox:
+python send_test_email.py --file sample_data/pms/01_aurum_A1_standard.pdf
 
-# Poll a live IMAP inbox once (requires IMAP_HOST, IMAP_USER, IMAP_PASSWORD):
+# 2. Poll the live IMAP inbox once to ingest and audit the newly arrived email:
 python watch_mailbox.py --once
 
-# Re-process quarantined statements in needs_review with candidate password(s):
+# 3. Process a local .eml file offline against persistent SQLite state:
+python watch_mailbox.py --test-eml sample_data/emails/e01_statement_single_attachment.eml
+
+# 4. Re-process quarantined statements in needs_review with candidate password(s):
 python watch_mailbox.py --reprocess-review --password SecretPass123
 ```
 
@@ -113,6 +116,10 @@ python watch_mailbox.py --reprocess-review --password SecretPass123
 ```bash
 streamlit run app.py
 ```
+*Dashboard features:*
+- **📤 Live Email Dispatch & Ingest:** Upload or select any statement to send it as an email to your mailbox and trigger automated ingestion.
+- **⚙️ Seed Fixtures / Cold Start:** One-click buttons in the sidebar to populate `templates/` with the 9 verified fixture templates (for instant zero-LLM testing) or clear `templates/` to demonstrate cold-start LLM learning.
+
 
 ---
 
