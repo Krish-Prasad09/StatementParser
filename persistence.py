@@ -255,6 +255,33 @@ class StatementStore:
             row = cursor.fetchone()
             return dict(row) if row else None
 
+    def update_statement_status(self, db_id: int, result: ExtractionResult):
+        """Updates an existing statement row in SQLite after unlocking/reprocessing."""
+        with closing(get_db_connection(self.db_path)) as conn:
+            cursor = conn.cursor()
+            issues_str = json.dumps(result.issues or [])
+            record_str = result.model_dump_json()
+            diag_msg = result.diagnostic_message or result.notes or ""
+            cursor.execute("""
+                UPDATE statements
+                SET status = ?,
+                    format_id = ?,
+                    issues_json = ?,
+                    llm_calls_made = ?,
+                    record_json = ?,
+                    diagnostic_message = ?
+                WHERE id = ?
+            """, (
+                result.status,
+                result.format_id or "unknown",
+                issues_str,
+                result.llm_calls_made,
+                record_str,
+                diag_msg,
+                db_id
+            ))
+            conn.commit()
+
     def save_email_event(
         self,
         message_id: str,
