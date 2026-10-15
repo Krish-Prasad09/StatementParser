@@ -27,9 +27,13 @@ st.set_page_config(
 # 2. Synchronize Streamlit Cloud secrets to os.environ for seamless cloud deployment
 try:
     if hasattr(st, "secrets"):
-        for k, v in st.secrets.items():
-            if isinstance(v, str) and k not in os.environ:
-                os.environ[k] = v
+        def _sync_secrets_to_env(mapping):
+            for k, v in mapping.items():
+                if isinstance(v, dict):
+                    _sync_secrets_to_env(v)
+                elif k not in os.environ:
+                    os.environ[k] = str(v)
+        _sync_secrets_to_env(st.secrets)
 except Exception:
     pass
 
