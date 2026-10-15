@@ -435,26 +435,7 @@ elif view_mode == "💼 Client Portfolio Consolidation":
             except Exception:
                 pass
 
-    # If store has few or no records, supplement with sample statements
-    # so multi-custodian and multi-client consolidation is immediately viewable
-    if len(all_raw_results) < 5:
-        sample_consolidation_files = [
-            "sample_data/pms/01_aurum_A1_standard.pdf",
-            "sample_data/pms/08_delta_D1_ledger.pdf",
-            "sample_data/aif/12_evergreen_E1_cat2.pdf",
-            "sample_data/pms/04_banyan_B1_quarterly_2pages.pdf",
-            "sample_data/excel_csv/16_hestia_statement.xlsx",
-            "sample_data/excel_csv/17_hestia_statement.csv",
-            "sample_data/pms/11_aurum_multi_client_2in1.pdf"
-        ]
-        for fpath in sample_consolidation_files:
-            if os.path.exists(fpath):
-                sample_res = pipeline.process_file(fpath)
-                if sample_res.status == "validated" and sample_res.sha256_hash not in seen_hashes:
-                    all_raw_results.append(sample_res)
-                    seen_hashes.add(sample_res.sha256_hash)
-
-    # Dynamically build PAN-to-Name map and unique client PANs
+    # Dynamically build PAN-to-Name map and unique client PANs from database records
     pan_to_name = {}
     for r in all_raw_results:
         for stmt in r.statements:
@@ -469,30 +450,28 @@ elif view_mode == "💼 Client Portfolio Consolidation":
         if stmt.statement.period_end
     )), reverse=True)
 
-    col_in1, col_in2, col_in3 = st.columns(3)
-    with col_in1:
-        if discovered_pans:
+    if not discovered_pans:
+        st.info("ℹ️ No validated statements found in the database yet. Send or upload statement emails using **Live Email Dispatch & Ingest** to view consolidated client portfolios here!")
+    else:
+        col_in1, col_in2, col_in3 = st.columns(3)
+        with col_in1:
             target_pan = st.selectbox(
                 "Select Client (PAN & Name):",
                 options=discovered_pans,
                 format_func=lambda p: f"{p} — {pan_to_name.get(p, 'Client')}"
             )
-        else:
-            target_pan = st.text_input("Client PAN Number:", value="")
-    with col_in2:
-        if discovered_dates:
+        with col_in2:
             target_date = st.selectbox("Reporting Date:", discovered_dates)
-        else:
-            target_date = st.text_input("Reporting Date (YYYY-MM-DD):", value="2026-09-30")
-    with col_in3:
-        target_currency = st.selectbox("Currency:", ["INR", "USD"])
+        with col_in3:
+            target_currency = st.selectbox("Currency:", ["INR", "USD"])
 
-    consolidated = consolidator.consolidate_client(
-        results=all_raw_results,
-        target_pan=target_pan,
-        target_period_end=target_date,
-        target_currency=target_currency
-    )
+        consolidated = consolidator.consolidate_client(
+            results=all_raw_results,
+            target_pan=target_pan,
+            target_period_end=target_date,
+            target_currency=target_currency
+        )
+
 
     if consolidated:
         st.subheader(f"Portfolio of {consolidated.client_name} (PAN: `{consolidated.pan}`)")
