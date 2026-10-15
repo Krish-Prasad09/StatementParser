@@ -168,7 +168,7 @@ def _scrub_log_message(msg: str) -> str:
     s = re.sub(r"\bAIza[0-9A-Za-z-_]{35}\b", "[REDACTED_KEY]", s)
     s = re.sub(r"\bAQ\.[A-Za-z0-9_\-]{40,}\b", "[REDACTED_KEY]", s)
     s = re.sub(r"\bsk-[A-Za-z0-9]{32,}\b", "[REDACTED_KEY]", s)
-    for env_k in ("GEMINI_API_KEY", "GEMINI_BACKUP_API_KEY", "OPENAI_API_KEY"):
+    for env_k in ("GEMINI_API_KEY", "GEMINI_BACKUP_API_KEY"):
         val = os.environ.get(env_k)
         if val and len(val) >= 8:
             s = s.replace(val, "[REDACTED_KEY]")
@@ -436,7 +436,6 @@ STRICT RULES:
                 if k and k not in gemini_keys:
                     gemini_keys.append(k)
 
-        openai_key = os.environ.get("OPENAI_API_KEY")
         max_attempts = 2
 
         if gemini_keys:
@@ -489,63 +488,9 @@ STRICT RULES:
                     ))
                     continue
 
-            if openai_key:
-                logging.info(_scrub_log_message("All Gemini keys exhausted; automatically falling back to OpenAI API..."))
-            else:
-                return None
+            return None
 
-        if openai_key:
-            env_model = os.environ.get("LLM_MODEL", "")
-            if not env_model or "gemini" in env_model.lower():
-                model = "gpt-4o-mini"
-            else:
-                model = env_model
-            url = "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {openai_key}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": "You are a financial statement extraction template generator. Return only valid JSON adhering to FormatTemplate schema."},
-                    {"role": "user", "content": prompt}
-                ],
-                "response_format": {"type": "json_object"}
-            }
-
-            for attempt in range(1, max_attempts + 1):
-                self.actual_http_calls += 1
-                try:
-                    resp = requests.post(url, headers=headers, json=payload, timeout=(10, 90))
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        raw_text = data["choices"][0]["message"]["content"]
-                        clean_json = extract_first_json_object(raw_text)
-                        return json.loads(clean_json)
-                    elif resp.status_code in (429, 500, 502, 503, 504) and attempt < max_attempts:
-                        self.last_diagnostic_message = f"HTTP {resp.status_code} (attempt {attempt})"
-                        logging.warning(_scrub_log_message(
-                            f"OpenAI API busy with status {resp.status_code}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
-                        ))
-                        time.sleep(3.0)
-                        continue
-                    else:
-                        self.last_diagnostic_message = f"HTTP {resp.status_code}"
-                        logging.warning(_scrub_log_message(f"OpenAI API request failed with status {resp.status_code}"))
-                except Exception as e:
-                    if attempt < max_attempts:
-                        self.last_diagnostic_message = f"transport error: {type(e).__name__} (attempt {attempt})"
-                        logging.warning(_scrub_log_message(
-                            f"OpenAI API transport error: {type(e).__name__}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
-                        ))
-                        time.sleep(3.0)
-                        continue
-                    self.last_diagnostic_message = f"transport error: {type(e).__name__}"
-                return None
-
-        if not gemini_key and not openai_key:
-            self.last_diagnostic_message = "no API key configured"
+        self.last_diagnostic_message = "no API key configured"
         return None
 
     def learn_format(

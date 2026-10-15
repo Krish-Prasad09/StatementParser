@@ -56,7 +56,7 @@ flowchart TD
 
 ### Stage 3: Real One-Shot Format Learner (`learner.py`)
 - **PII Redaction (`extract_and_redact_document_text`):** Extracts text from the first pages/sheets and masks PANs (`<REDACTED_PAN>`), client names (`<REDACTED_NAME>`), emails, phone numbers, and formatted currency amounts (`<AMOUNT>`).
-- **Prompt Construction (`build_learning_prompt`):** Combines structural features, PII-redacted text, the full `FormatTemplate.model_json_schema()`, and `WORKED_EXAMPLE_TEMPLATE`, instructing the LLM (Gemini `gemini-2.5-flash` or OpenAI `gpt-4o-mini`) to return JSON only.
+- **Prompt Construction (`build_learning_prompt`):** Combines structural features, PII-redacted text, the full `FormatTemplate.model_json_schema()`, and `WORKED_EXAMPLE_TEMPLATE`, instructing Google Gemini (`gemini-3.8-flash` with primary `GEMINI_API_KEY` and fallback `GEMINI_BACKUP_API_KEY`) to return JSON only.
 - **Three-Stage Verification:**
   1. `validate_template_schema_and_pii()`: Validates against `FormatTemplate` and scans for leaked PII patterns (`learning_failed_invalid_template`).
   2. Deterministic parse of the sample document via `StatementParser`.

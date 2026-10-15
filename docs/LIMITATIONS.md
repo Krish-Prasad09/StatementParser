@@ -73,11 +73,11 @@ Encrypted PDFs are detected during ingestion via `pypdf.PdfReader.is_encrypted`:
 - **Empty Runtime Store:** `templates/` begins empty. The nine anonymized parser fixtures reside only in `test_fixtures/templates/`; the runtime pipeline does not read them.
 - **One-Shot Learning Path:** For a first-seen provider or layout, `FormatLearner` (`learner.py`) redacts PII from the document text, constructs a prompt containing the `FormatTemplate` JSON Schema and a worked example, and makes at most one LLM request. A response that fails schema, PII, or financial self-check validation is discarded and routed to `needs_review`; the system does not retry or call a second provider.
 - **Durable Failure Persistence:** Failed learning attempts are persisted in SQLite by exact format fingerprint. The same malformed layout is not repeatedly retried, but a materially different layout from the provider can still be learned.
-- **Model Configuration:** Configurable via the `LLM_MODEL` environment variable (defaults to `gemini-2.5-flash` when using `GEMINI_API_KEY`, or `gpt-4o-mini` when using `OPENAI_API_KEY`).
+- **Model Configuration:** Configurable via the `LLM_MODEL` environment variable (defaults to `gemini-3.8-flash` with primary `GEMINI_API_KEY` and fallback `GEMINI_BACKUP_API_KEY`).
 - **Mock Testing:** In CI and local test suites without live API keys, the live synthesis and self-check loop is verified using mock LLM responses on unseen synthetic providers (`meridian_wealth_pms`) and mutated row-label variants.
 
 Three distinct failure codes govern quarantine:
-- **`learning_failed_llm_unavailable`**: No API key (`GEMINI_API_KEY` / `OPENAI_API_KEY`) is configured, network request failed, or retry attempts were exhausted. Zero templates are written.
+- **`learning_failed_llm_unavailable`**: No API key (`GEMINI_API_KEY` / `GEMINI_BACKUP_API_KEY`) is configured, network request failed, or retry attempts were exhausted. Zero templates are written.
 - **`learning_failed_invalid_template`**: The LLM returned malformed JSON, violated the `FormatTemplate` Pydantic schema, or leaked PII (PANs, client names, emails, phone numbers, ISINs) into the template. Zero templates are written.
 - **`learning_failed_self_check`**: The LLM returned a syntactically valid `FormatTemplate`, but when `StatementParser` executed it on the sample document and `FinancialValidator` audited the output, critical validation issues remained (e.g., `missing_required_metadata`, `empty_statement_zero_balances`, `summary_rollforward_mismatch`, `closing_value_ne_holdings_total`). The candidate template is discarded and never saved to `templates/`.
 
