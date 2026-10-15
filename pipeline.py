@@ -57,20 +57,23 @@ class ProcessingPipeline:
 
     def approve_template(self, format_id: str) -> bool:
         """Approves/promotes a template so subsequent statements of that format parse cleanly with 0 LLM calls."""
+        tmpl_path = os.path.join(self.templates_dir, f"{format_id}.json")
+        updated = False
+        if os.path.exists(tmpl_path):
+            try:
+                with open(tmpl_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                data["approved"] = True
+                with open(tmpl_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+                updated = True
+            except Exception:
+                pass
+        self._load_templates()
         if format_id in self.fingerprinter.templates:
             self.fingerprinter.templates[format_id]["approved"] = True
-            tmpl_path = os.path.join(self.templates_dir, f"{format_id}.json")
-            if os.path.exists(tmpl_path):
-                try:
-                    with open(tmpl_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                    data["approved"] = True
-                    with open(tmpl_path, "w", encoding="utf-8") as f:
-                        json.dump(data, f, indent=2)
-                except Exception:
-                    pass
-            return True
-        return False
+            updated = True
+        return updated
 
     promote_template = approve_template
 

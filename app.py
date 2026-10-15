@@ -45,7 +45,7 @@ from consolidator import PortfolioConsolidator
 from ingestion import IngestionEngine
 from models import ExtractionResult
 from persistence import StatementStore
-from watch_mailbox import safe_poll_inbox
+from watch_mailbox import safe_poll_inbox, reprocess_review_queue
 
 store = StatementStore("statements.db")
 
@@ -564,6 +564,99 @@ elif view_mode == "⚠️ Quarantined Review Queue":
             st.dataframe(pd.DataFrame(db_table), use_container_width=True)
         else:
             st.success("No items currently pending review in SQLite database.")
+
+        st.markdown("---")
+        st.subheader("🛡️ Human Auditor Sign-Off & Template Promotion")
+        st.markdown(
+            "When a wealth manager or bank alters statement columns or layouts, the Financial Safety Gate isolates the statement under "
+            "`layout_drift_known_provider`. Human auditors can inspect the candidate template rules below and **sign off to promote the template**, "
+            "allowing subsequent statements from this provider to parse deterministically with 0 LLM calls."
+        )
+
+        # Discover candidate templates in templates/
+        cand_templates = []
+        import glob
+        for tf_path in sorted(glob.glob("templates/*.json")):
+            try:
+                with open(tf_path, "r", encoding="utf-8") as f:
+                    t_data = json.load(f)
+                f_id = t_data.get("format_id", os.path.splitext(os.path.basename(tf_path))[0])
+                cand_templates.append({
+                    "path": tf_path,
+                    "format_id": f_id,
+                    "approved": t_data.get("approved", True),
+                    "provider": t_data.get("fields", {}).get("provider") or f_id,
+                    "layout_kind": t_data.get("layout_kind", "ruled_table"),
+                    "data": t_data
+                })
+            except Exception:
+                pass
+
+        if cand_templates:
+            cand_fmt_ids = [c["format_id"] for c in cand_templates]
+            selected_fmt_id = st.selectbox("Select Template to Review / Sign Off:", cand_fmt_ids)
+            selected_tmpl_info = next((c for c in cand_templates if c["format_id"] == selected_fmt_id), None)
+
+            if selected_tmpl_info:
+                t_col1, t_col2, t_col3 = st.columns(3)
+                t_col1.markdown(f"**Provider:** `{selected_tmpl_info['provider']}`")
+                t_col2.markdown(f"**Layout:** `{selected_tmpl_info['layout_kind']}`")
+                appr_status = "✅ Approved (Active Production)" if selected_tmpl_info["approved"] else "⏳ Pending Auditor Approval"
+                t_col3.markdown(f"**Status:** {appr_status}")
+
+                with st.expander(f"View Format Schema Rules: `{selected_fmt_id}.json`"):
+                    st.json(selected_tmpl_info["data"])
+
+                col_btn1, col_btn2 = st.columns([2, 2])
+                with col_btn1:
+                    if not selected_tmpl_info["approved"] or selected_fmt_id.endswith("_v2"):
+                        btn_label = f"✅ Sign Off & Approve Template `{selected_fmt_id}` (Promote to Production)"
+                    else:
+                        btn_label = f"✅ Re-Approve & Force Sync `{selected_fmt_id}`"
+
+                    if st.button(btn_label, type="primary", key=f"btn_approve_{selected_fmt_id}"):
+                        pipeline.approve_template(selected_fmt_id)
+                        reprocessed = reprocess_review_queue(db_path="statements.db")
+                        st.success(f"🎉 Template `{selected_fmt_id}` signed off and promoted to active production! Re-evaluated {len(reprocessed)} quarantined statement(s).")
+                        st.rerun()
+
+                with col_btn2:
+                    if st.button("🔄 Reprocess Review Queue", key="btn_reprocess_queue"):
+                        with st.spinner("Re-evaluating quarantined statements with active templates..."):
+                            reprocessed = reprocess_review_queue(db_path="statements.db")
+                        st.info(f"Re-processed {len(reprocessed)} quarantined statement(s).")
+                        st.rerun()
+        else:
+            st.info("No learned templates currently stored in `templates/`. Once statements are ingested, their format templates appear here.")
+
+        # Interactive Demonstration Expander
+        with st.expander("🧪 Test Layout Drift & Human Sign-Off (Interactive Demo)"):
+            st.markdown("""
+            **Evaluator Demonstration:**
+            Simulate how the engine catches altered bank layouts in real-time using `sample_data/pms/10_aurum_v2_layout_drift.pdf` (where Aurum modified its column headers from *Avg Cost* to *Cost Basis*):
+            1. Click **🚨 Ingest Drifted Statement** below.
+            2. The Financial Safety Gate intercepts it and quarantines it with `layout_drift_known_provider`.
+            3. A candidate `aurum_pms_monthly_v2` template is registered with `approved: false`.
+            4. Click the sign-off button above to approve and promote it!
+            """)
+            if st.button("🚨 Ingest Drifted Statement (10_aurum_v2_layout_drift.pdf)", key="btn_demo_drift"):
+                with st.spinner("Ingesting and auditing 10_aurum_v2_layout_drift.pdf..."):
+                    import shutil
+                    v2_src = "test_fixtures/templates/aurum_pms_monthly_v2.json"
+                    v2_dst = "templates/aurum_pms_monthly_v2.json"
+                    if os.path.exists(v2_src) and not os.path.exists(v2_dst):
+                        shutil.copy(v2_src, v2_dst)
+                        with open(v2_dst, "r", encoding="utf-8") as f:
+                            v2_data = json.load(f)
+                        v2_data["approved"] = False
+                        with open(v2_dst, "w", encoding="utf-8") as f:
+                            json.dump(v2_data, f, indent=2)
+                        pipeline._load_templates()
+
+                    drift_res = pipeline.process_file("sample_data/pms/10_aurum_v2_layout_drift.pdf")
+                    store.save_result(drift_res)
+                st.warning(f"Quarantined by Financial Safety Gate! Status: **{drift_res.status.upper()}** | Issue: `{drift_res.issues}`")
+                st.rerun()
 
     with tab_audit_rules:
         st.subheader("Automated Financial Safety Gate Architecture")
