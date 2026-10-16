@@ -148,7 +148,35 @@ class FormatFingerprinter:
         if ext == ".pdf" and features["layout_kind"] == "ruled_table":
             try:
                 with pdfplumber.open(file_path) as pdf:
-                    for page in pdf.pages[:3]:
+                    total_pages = len(pdf.pages)
+                    if total_pages <= 3:
+                        target_indices = set(range(total_pages))
+                    else:
+                        target_indices = {0}
+                        found_sum = False
+                        found_hold = False
+                        found_txn = False
+
+                        SUMMARY_KEYS = ["opening", "inflow", "gain", "corpus", "worth at start", "closing", "opening nav", "closing nav"]
+                        HOLDINGS_KEYS = ["security", "isin", "qty", "units", "scrip", "avg cost", "market price", "rate", "worth", "holding"]
+                        TXN_KEYS = ["trade date", "date", "action", "type", "particulars", "net amount", "trade", "transaction"]
+
+                        for idx, page in enumerate(pdf.pages):
+                            page_text = (page.extract_text() or "").lower()
+                            if not found_sum and any(k in page_text for k in SUMMARY_KEYS):
+                                target_indices.add(idx)
+                                found_sum = True
+                            if not found_hold and any(k in page_text for k in HOLDINGS_KEYS):
+                                target_indices.add(idx)
+                                found_hold = True
+                            if not found_txn and any(k in page_text for k in TXN_KEYS):
+                                target_indices.add(idx)
+                                found_txn = True
+                            if found_sum and found_hold and found_txn:
+                                break
+
+                    for idx in sorted(target_indices):
+                        page = pdf.pages[idx]
                         tables = page.extract_tables()
                         for t in tables:
                             if t and t[0]:
