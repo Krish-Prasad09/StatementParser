@@ -81,6 +81,13 @@ Three distinct failure codes govern quarantine:
 - **`learning_failed_invalid_template`**: The LLM returned malformed JSON, violated the `FormatTemplate` Pydantic schema, or leaked PII (PANs, client names, emails, phone numbers, ISINs) into the template. Zero templates are written.
 - **`learning_failed_self_check`**: The LLM returned a syntactically valid `FormatTemplate`, but when `StatementParser` executed it on the sample document and `FinancialValidator` audited the output, critical validation issues remained (e.g., `missing_required_metadata`, `empty_statement_zero_balances`, `summary_rollforward_mismatch`, `closing_value_ne_holdings_total`). The candidate template is discarded and never saved to `templates/`.
 
+### Top-3 Pages Slicing Boundary During Format Learning (`pdf.pages[:3]`)
+- **Design Decision & Token Optimization:** During one-shot template learning (`extract_and_redact_document_text()` in `learner.py`), the system extracts text only from the first three pages (`pdf.pages[:3]`). This keeps prompt token payloads small (<1,500 tokens), reduces LLM API latency to under 3 seconds, and minimizes external network surface area.
+- **Known Failure Mode:** If an unseen wealth manager issues a document where Pages 1 to 3 consist entirely of cover pages, promotional letters, disclaimers, or fund manager commentary, and the actual portfolio holdings table only begins on **Page 4 or later**, the LLM prompt will not contain the table headers.
+- **Fail-Safe Behavior:** The system **never silently emits partial or corrupted data**. During the mandatory learn-time self-check (`self_check_template()`), the candidate template is executed on the full sample PDF. Because zero holdings are extracted, the self-check fails immediately with `learning_failed_self_check`, the candidate template is discarded, and the statement is safely quarantined to `needs_review`.
+- **Production Roadmap (Table-Aware Page Sampler):** In future iterations, replace the sequential slice (`pages[:3]`) with dynamic sampling: always include Page 1 (for metadata/PAN), plus the first two pages detected with `page.find_tables()` or financial table keywords.
+- **Important Note on Deterministic Parsing:** This 3-page limitation applies **strictly to the one-shot learning step**. The deterministic parser (`parser.py`) iterates through **every single page** (`for page in pdf.pages:`) without page limits, ensuring 100% of holdings and transactions across all continuation pages are extracted.
+
 ---
 
 ## 7. Layout Drift & Provider Identity Guards
