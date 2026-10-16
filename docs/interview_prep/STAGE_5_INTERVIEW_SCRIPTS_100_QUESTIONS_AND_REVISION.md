@@ -314,6 +314,47 @@
 
 ---
 
+### Cross-Question 6: "In `learner.py`, you extract text from `pdf.pages[:3]`. What happens if an AMC puts disclaimers first and the holdings table starts on Page 4?"
+* **Honest Technical Defense:**
+  > *"Slicing `pdf.pages[:3]` during one-shot learning was a deliberate engineering trade-off: it caps token payload to under 1,500 tokens, keeps LLM latency under 3 seconds, and minimizes external payload surface.
+  >
+  > Crucially, our architecture is fail-closed: if tables only start on Page 4, the LLM prompt will lack table headers. But the candidate template is never blindly trusted. During `self_check_template()`, the candidate template is run on the full document. Because zero holdings are extracted, the deterministic self-check fails immediately (`learning_failed_self_check`), the template is discarded in-memory, and the document is quarantined to `needs_review`.
+  >
+  > Furthermore, this 3-page slice applies **only to the one-shot learning prompt**. The deterministic parser (`parser.py`) iterates through `pdf.pages` across all pages with zero page limits, ensuring 100% of holdings on continuation pages are captured. In our production roadmap, we plan to replace sequential slicing with a 'Table-Aware Page Sampler' using `pdfplumber.find_tables()`."*
+
+---
+
+### Cross-Question 7: "Why use standard IEEE 754 `float` instead of Python's `Decimal` for financial monetary figures?"
+* **Honest Technical Defense:**
+  > *"In banking core ledgers that perform millions of cents-level interest accruals, `Decimal` is mandatory to eliminate floating-point representation drift. However, our system is an extraction and validation pipeline, not a banking ledger engine.
+  >
+  > We chose `float` for three concrete reasons:
+  > 1. **Epsilon Tolerances:** External PDF statements from AMCs already contain rounding discrepancies between line items and summary roll-forwards. We enforce an explicit `MONEY_TOLERANCE = 1.00` (₹1.00) and `WEIGHT_TOLERANCE = 0.5%`, which completely swallows sub-paisa IEEE 754 precision noise ($\approx 10^{-15}$).
+  > 2. **Serialization & Interoperability:** IEEE 754 floats serialize natively to JSON, SQLite, and PostgreSQL numeric columns without requiring custom JSON encoders or Pydantic custom serializers.
+  > 3. **Clean Fallbacks:** `clean_number()` in `utils.py` handles dirty OCR strings, parenthesized negatives `(12,500)`, and Indian numbering commas, returning a clean float or `0.0` safely. For enterprise ledger write-backs, swapping the underlying field type to `Decimal` in Pydantic models is trivial."*
+
+---
+
+### Cross-Question 8: "Why is your fingerprinting similarity threshold 0.75 instead of 1.0 (100%)?"
+* **Honest Technical Defense:**
+  > *"A 1.0 (100%) threshold is brittle and fails immediately in real-world document processing. Minor PDF text extraction variations—such as font kerning, column header abbreviations (`'Qty'` vs `'Quantity'`, `'Mkt Val (Rs.)'` vs `'Market Value (INR)'`), or slight trailing whitespace differences—would cause valid statements to miss their template and unnecessarily trigger expensive LLM re-learning.
+  >
+  > 0.75 provides the ideal sweet spot for layout tolerance. To ensure this loose threshold never causes false positives, we enforce two strict secondary guards:
+  > 1. **SEBI Registration / Provider Slug Match:** A template is only considered if the document text matches the provider's registered corporate identity.
+  > 2. **`missing_mapped_col` Circuit Breaker:** Even if overall similarity is 0.85, if any critical column mapped in the template is absent from the extracted headers, the match is rejected and flagged as layout drift."*
+
+---
+
+### Cross-Question 9: "If a newly seen provider uses the exact same table layout as an existing provider (like Aurous), why does your system call the LLM instead of reusing the existing template?"
+* **Honest Technical Defense:**
+  > *"Reusing an existing template across providers is a dangerous anti-pattern known as **Provider Misattribution**.
+  >
+  > While two wealth managers might use similar table columns, their metadata structures are completely distinct: they have different SEBI registration numbers, different Client ID regex formats, different date conventions, and different summary roll-forward layouts.
+  >
+  > If we reused Aurous's template for a new provider 'Zenith', the parser would attempt to extract metadata using Aurous's SEBI regex and summary keywords, either failing validation or attributing trades to the wrong AMC. By calling the LLM once on the new provider, we synthesize a clean, isolated template with provider-specific metadata patterns, test it against the self-check gate, and ensure zero LLM calls on all future statements from that provider."*
+
+---
+
 # PART 27: LIVE CODE-READING PRACTICE EXERCISES
 
 ### Exercise 1: Format Fingerprinting Similarity
