@@ -433,16 +433,19 @@ STRICT RULES:
             val = os.environ.get(env_k, "")
             for k in val.split(","):
                 k = k.strip()
-                if k and k not in gemini_keys:
-                    gemini_keys.append(k)
+                if k and k not in [item[1] for item in gemini_keys]:
+                    gemini_keys.append((env_k, k))
 
         max_attempts = 2
 
         if gemini_keys:
-            model_name = os.environ.get("LLM_MODEL", "gemini-3.8-flash")
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+            primary_model = os.environ.get("LLM_MODEL", "gemini-3.8-flash")
+            backup_model = os.environ.get("LLM_BACKUP_MODEL", "gemini-flash-latest")
 
-            for key_idx, active_gemini_key in enumerate(gemini_keys):
+            for key_idx, (env_k, active_gemini_key) in enumerate(gemini_keys):
+                active_model = backup_model if (env_k == "GEMINI_BACKUP_API_KEY" or key_idx > 0) else primary_model
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent"
+
                 headers = {
                     "x-goog-api-key": active_gemini_key,
                     "Content-Type": "application/json"
@@ -464,27 +467,27 @@ STRICT RULES:
                         elif resp.status_code in (429, 500, 502, 503, 504) and attempt < max_attempts:
                             self.last_diagnostic_message = f"HTTP {resp.status_code} (attempt {attempt})"
                             logging.warning(_scrub_log_message(
-                                f"Gemini API ({model_name}, key #{key_idx+1}) busy/rate-limited with status {resp.status_code}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
+                                f"Gemini API ({active_model}, key #{key_idx+1}) busy/rate-limited with status {resp.status_code}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
                             ))
                             time.sleep(3.0)
                             continue
                         else:
                             self.last_diagnostic_message = f"HTTP {resp.status_code}"
-                            logging.warning(_scrub_log_message(f"Gemini API ({model_name}, key #{key_idx+1}) request failed with status {resp.status_code}"))
+                            logging.warning(_scrub_log_message(f"Gemini API ({active_model}, key #{key_idx+1}) request failed with status {resp.status_code}"))
                     except Exception as e:
                         if attempt < max_attempts:
                             self.last_diagnostic_message = f"transport error: {type(e).__name__} (attempt {attempt})"
                             logging.warning(_scrub_log_message(
-                                f"Gemini API ({model_name}, key #{key_idx+1}) transport error: {type(e).__name__}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
+                                f"Gemini API ({active_model}, key #{key_idx+1}) transport error: {type(e).__name__}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
                             ))
                             time.sleep(3.0)
                             continue
                         self.last_diagnostic_message = f"transport error: {type(e).__name__}"
-                        logging.warning(_scrub_log_message(f"Gemini API ({model_name}, key #{key_idx+1}) error: {type(e).__name__}"))
+                        logging.warning(_scrub_log_message(f"Gemini API ({active_model}, key #{key_idx+1}) error: {type(e).__name__}"))
 
                 if key_idx + 1 < len(gemini_keys):
                     logging.info(_scrub_log_message(
-                        f"Gemini API key #{key_idx+1} exhausted/failed; automatically failing over to backup Gemini key #{key_idx+2}..."
+                        f"Gemini API key #{key_idx+1} exhausted/failed; automatically failing over to backup Gemini key #{key_idx+2} using model '{backup_model}'..."
                     ))
                     continue
 

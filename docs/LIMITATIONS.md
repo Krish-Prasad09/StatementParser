@@ -73,7 +73,7 @@ Encrypted PDFs are detected during ingestion via `pypdf.PdfReader.is_encrypted`:
 - **Empty Runtime Store:** `templates/` begins empty. The nine anonymized parser fixtures reside only in `test_fixtures/templates/`; the runtime pipeline does not read them.
 - **One-Shot Learning Path:** For a first-seen provider or layout, `FormatLearner` (`learner.py`) redacts PII from the document text, constructs a prompt containing the `FormatTemplate` JSON Schema and a worked example, and makes at most one LLM request. A response that fails schema, PII, or financial self-check validation is discarded and routed to `needs_review`; the system does not retry or call a second provider.
 - **Durable Failure Persistence:** Failed learning attempts are persisted in SQLite by exact format fingerprint. The same malformed layout is not repeatedly retried, but a materially different layout from the provider can still be learned.
-- **Model Configuration:** Configurable via the `LLM_MODEL` environment variable (defaults to `gemini-3.8-flash` with primary `GEMINI_API_KEY` and fallback `GEMINI_BACKUP_API_KEY`).
+- **Model Configuration:** Configurable via the `LLM_MODEL` (defaults to `gemini-3.8-flash`) and `LLM_BACKUP_MODEL` (defaults to `gemini-flash-latest`) environment variables, with primary `GEMINI_API_KEY` and fallback `GEMINI_BACKUP_API_KEY`.
 - **Mock Testing:** In CI and local test suites without live API keys, the live synthesis and self-check loop is verified using mock LLM responses on unseen synthetic providers (`meridian_wealth_pms`) and mutated row-label variants.
 
 Three distinct failure codes govern quarantine:
