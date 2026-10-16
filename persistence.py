@@ -1,14 +1,11 @@
 """
 persistence.py
 --------------
-Durable persistence store for processed statements, audit events, and quarantine queues.
-Supports:
-1. Cloud PostgreSQL (Neon.tech / Supabase / AWS RDS) via DATABASE_URL
-2. Local SQLite (statements.db) fallback for zero-configuration testing
-Ensures durable duplicate and revision tracking across restarts and supports the Streamlit dashboard.
+Durable persistence store for processed statements, audit events, and quarantine queues
+backed by PostgreSQL (Neon.tech / Supabase / AWS RDS).
+Ensures durable duplicate and revision tracking across restarts and powers the Streamlit dashboard.
 """
 
-import sqlite3
 import json
 import os
 import hashlib
@@ -22,7 +19,7 @@ from models import ExtractionResult
 from utils import compute_sha256
 
 
-DEFAULT_DB_PATH = "statements.db"
+DEFAULT_DB_PATH = ""
 
 try:
     import psycopg2
@@ -34,8 +31,8 @@ except ImportError:
 def _load_env_if_needed():
     """
     Auto-discovers DATABASE_URL from Streamlit Cloud secrets or local .env file.
-    This guarantees persistence.py is completely self-sufficient and connects to
-    Cloud PostgreSQL (Neon.tech) without depending on another module loading .env first.
+    This guarantees persistence.py connects to Cloud PostgreSQL (Neon.tech)
+    without depending on another module loading .env first.
     """
     if os.getenv("DATABASE_URL"):
         return
@@ -71,18 +68,13 @@ def _load_env_if_needed():
 
 def _is_pg_target(db_path: Optional[str] = None) -> Tuple[bool, str]:
     """
-    Determines if the target database should be PostgreSQL or SQLite.
-    Returns:
-      (True, postgres_conn_string) -> When DATABASE_URL is set (Neon cloud)
-      (False, sqlite_file_path)     -> When running local offline testing fallback
+    Returns (True, postgres_conn_string). All persistence is backed by PostgreSQL.
     """
     _load_env_if_needed()
     env_url = (os.getenv("DATABASE_URL") or "").strip()
     if db_path and (str(db_path).startswith("postgresql://") or str(db_path).startswith("postgres://")):
         return True, str(db_path)
-    if env_url and (db_path in (DEFAULT_DB_PATH, None, "") or not os.path.isabs(str(db_path))):
-        return True, env_url
-    return False, str(db_path or DEFAULT_DB_PATH)
+    return True, env_url
 
 
 def _get_pg_conn(conn_str: str):
@@ -94,102 +86,10 @@ def _get_pg_conn(conn_str: str):
     return conn
 
 
-def _get_sqlite_conn(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path, timeout=30, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA busy_timeout = 30000")
-    conn.execute("PRAGMA journal_mode = WAL")
-    _create_tables_sqlite(conn)
-    return conn
-
-
-def get_db_connection(db_path: str = DEFAULT_DB_PATH):
-    """Creates a connection to SQLite or PostgreSQL database and ensures schema exists."""
-    is_pg, target = _is_pg_target(db_path)
-    if is_pg:
-        return _get_pg_conn(target)
-    return _get_sqlite_conn(target)
-
-
-def _create_tables_sqlite(conn: sqlite3.Connection):
-    """Initializes tables and indexes for SQLite."""
-    cursor = conn.cursor()
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS statements (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        file_path TEXT NOT NULL,
-        sha256_hash TEXT NOT NULL,
-        format_id TEXT,
-        status TEXT NOT NULL,
-        issues_json TEXT NOT NULL,
-        llm_calls_made INTEGER NOT NULL DEFAULT 0,
-        record_json TEXT,
-        diagnostic_message TEXT,
-        created_at TEXT NOT NULL
-    );
-    """)
-    try:
-        cursor.execute("ALTER TABLE statements ADD COLUMN diagnostic_message TEXT;")
-    except Exception:
-        pass
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_statements_hash ON statements(sha256_hash);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_statements_status ON statements(status);")
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS format_templates (
-        format_id TEXT PRIMARY KEY,
-        template_json TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
-    """)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS statement_artifacts (
-        file_path TEXT PRIMARY KEY,
-        sha256_hash TEXT NOT NULL,
-        file_name TEXT NOT NULL,
-        content BLOB NOT NULL,
-        created_at TEXT NOT NULL
-    );
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS email_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        message_id TEXT NOT NULL,
-        subject TEXT,
-        sender TEXT,
-        received_at TEXT,
-        status TEXT NOT NULL,
-        reason TEXT,
-        attachments_json TEXT,
-        processing_state TEXT NOT NULL DEFAULT 'completed',
-        processed_at TEXT NOT NULL
-    );
-    """)
-    try:
-        cursor.execute("ALTER TABLE email_events ADD COLUMN processing_state TEXT NOT NULL DEFAULT 'completed'")
-    except Exception:
-        pass
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_email_events_msg_id ON email_events(message_id);")
-    try:
-        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_email_events_message_unique ON email_events(message_id);")
-    except sqlite3.IntegrityError:
-        pass
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_email_events_status ON email_events(status);")
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS failed_learning_attempts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        format_id TEXT NOT NULL,
-        provider_key TEXT,
-        layout_kind TEXT,
-        fingerprint_hash TEXT,
-        failure_issue TEXT NOT NULL,
-        diagnostic_message TEXT,
-        failed_at TEXT NOT NULL
-    );
-    """)
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_failed_learning_fmt ON failed_learning_attempts(format_id);")
-    conn.commit()
+def get_db_connection(db_path: Optional[str] = None):
+    """Creates a connection to PostgreSQL database and ensures schema exists."""
+    _, target = _is_pg_target(db_path)
+    return _get_pg_conn(target)
 
 
 def _create_tables_pg(conn):
@@ -257,35 +157,27 @@ def _create_tables_pg(conn):
 
 
 class StatementStore:
-    """Interface for saving, querying, and syncing parsed statements across restarts."""
+    """Interface for saving, querying, and syncing parsed statements across restarts via PostgreSQL."""
 
-    def __init__(self, db_path: str = DEFAULT_DB_PATH):
-        self.is_pg, self.target = _is_pg_target(db_path)
+    def __init__(self, db_path: Optional[str] = None):
+        self.is_pg = True
+        _, self.target = _is_pg_target(db_path)
         self.db_path = self.target
         with closing(self._get_connection()) as conn:
             pass
 
     def _get_connection(self):
-        if self.is_pg:
-            return _get_pg_conn(self.target)
-        return _get_sqlite_conn(self.target)
+        return _get_pg_conn(self.target)
 
     def _execute(self, cursor, sql: str, params: tuple = ()):
-        if self.is_pg:
-            cursor.execute(sql.replace("?", "%s"), params)
-        else:
-            cursor.execute(sql, params)
+        cursor.execute(sql.replace("?", "%s"), params)
 
     def _insert(self, conn, cursor, sql: str, params: tuple = ()) -> int:
-        if self.is_pg:
-            cursor.execute(sql.replace("?", "%s") + " RETURNING id", params)
-            row = cursor.fetchone()
-            conn.commit()
-            return row["id"] if isinstance(row, dict) else row[0]
-        else:
-            cursor.execute(sql, params)
-            conn.commit()
-            return cursor.lastrowid
+        cursor.execute(sql.replace("?", "%s") + " RETURNING id", params)
+        row = cursor.fetchone()
+        conn.commit()
+        return row["id"] if isinstance(row, dict) else row[0]
+
 
     def save_result(self, result: ExtractionResult, sha256_hash: str = "") -> int:
         """Saves an ExtractionResult into the database with its SHA-256 content hash."""
@@ -612,12 +504,7 @@ class StatementStore:
         initial_state = "started" if status == "ingest" else "completed"
         with closing(self._get_connection()) as conn:
             cursor = conn.cursor()
-            if not self.is_pg:
-                cursor.execute("BEGIN IMMEDIATE")
-
-            sel_sql = "SELECT id, processing_state, processed_at FROM email_events WHERE message_id = ? ORDER BY id DESC LIMIT 1"
-            if self.is_pg:
-                sel_sql += " FOR UPDATE"
+            sel_sql = "SELECT id, processing_state, processed_at FROM email_events WHERE message_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE"
             self._execute(cursor, sel_sql, (clean_msg_id,))
             existing = cursor.fetchone()
             if existing:
@@ -810,15 +697,6 @@ class StatementStore:
         """Clears all records (useful for test resets)."""
         with closing(self._get_connection()) as conn:
             cursor = conn.cursor()
-            if self.is_pg:
-                cursor.execute("TRUNCATE TABLE statements, statement_artifacts, email_events, failed_learning_attempts RESTART IDENTITY CASCADE")
-            else:
-                cursor.execute("DELETE FROM statements")
-                cursor.execute("DELETE FROM statement_artifacts")
-                cursor.execute("DELETE FROM email_events")
-                cursor.execute("DELETE FROM failed_learning_attempts")
-                try:
-                    cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('statements', 'statement_artifacts', 'email_events', 'failed_learning_attempts')")
-                except Exception:
-                    pass
+            cursor.execute("TRUNCATE TABLE statements, statement_artifacts, email_events, failed_learning_attempts, format_templates RESTART IDENTITY CASCADE")
             conn.commit()
+

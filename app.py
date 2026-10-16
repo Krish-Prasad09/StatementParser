@@ -3,7 +3,7 @@ app.py
 ------
 Interactive Streamlit Operations Dashboard for the Activv Money PMS/AIF Statement Parser.
 Operational Views:
-1. 📬 Mailbox Ingestion & Operations: Real-time email gatekeeper, IMAP poller & SQLite audit trail
+1. 📬 Mailbox Ingestion & Operations: Real-time email gatekeeper, IMAP poller & PostgreSQL audit trail
 2. 💼 Client Portfolio Consolidation: Multi-custodian wealth consolidation by PAN & ISIN
 3. ⚠️ Quarantined Review Queue: Financial safety gate exception queue & audit architecture
 4. 📁 Direct Statement Upload: Manual statement and email ingestion workbench
@@ -51,18 +51,18 @@ from models import ExtractionResult
 from persistence import StatementStore
 from watch_mailbox import safe_poll_inbox, reprocess_review_queue
 
-store = StatementStore("statements.db")
-# Dynamically detect database type for clear interview presentation
-db_label = "Neon PostgreSQL (Cloud ☁️)" if getattr(store, "is_pg", False) else "SQLite (`statements.db` 💾)"
+store = StatementStore()
+db_label = "Neon PostgreSQL (Cloud ☁️)"
 
 # Startup Mailbox Scan (Runs safely once per Streamlit session)
 if "mailbox_polled_at_startup" not in st.session_state:
     st.session_state["mailbox_polled_at_startup"] = True
     try:
-        poll_res = safe_poll_inbox(db_path="statements.db")
+        poll_res = safe_poll_inbox()
         st.session_state["last_poll_result"] = poll_res
     except Exception as e:
         st.session_state["last_poll_result"] = {"status": "error", "count": 0, "message": str(e)}
+
 
 # Custom Styling
 st.markdown("""
@@ -101,7 +101,8 @@ st.markdown("""
 
 @st.cache_resource
 def get_pipeline():
-    return ProcessingPipeline(templates_dir="templates", db_path="statements.db")
+    return ProcessingPipeline(templates_dir="templates")
+
 
 
 @st.cache_resource
@@ -201,7 +202,7 @@ if last_poll:
 
 if st.sidebar.button("🔄 Check Inbox Now", key="btn_sidebar_poll"):
     with st.spinner("Connecting to IMAP and polling unseen emails..."):
-        poll_res = safe_poll_inbox(db_path="statements.db")
+        poll_res = safe_poll_inbox()
         st.session_state["last_poll_result"] = poll_res
         if poll_res.get("status") == "success":
             st.sidebar.success(f"Processed {poll_res.get('count', 0)} email(s)!")
@@ -221,7 +222,7 @@ st.sidebar.caption(f"📁 Learned Templates in `templates/`: **{len(stored_templ
 
 db_stmts_count = len(store.get_all())
 db_emails_count = len(store.get_email_events())
-db_type = "Neon PostgreSQL (Cloud ☁️)" if getattr(store, "is_pg", False) else "SQLite (`statements.db` 💾)"
+db_type = "Neon PostgreSQL (Cloud ☁️)"
 st.sidebar.caption(f"🗄️ Database: **{db_type}**")
 st.sidebar.caption(f"📊 Records: **{db_stmts_count}** stmts, **{db_emails_count}** emails")
 
@@ -238,7 +239,7 @@ if st.sidebar.button("🧹 Clean Stored Templates (Cold Start)", help="Delete le
     st.sidebar.info(f"Cleaned {deleted_count} template(s). Engine reset to Cold Start!")
     st.rerun()
 
-if st.sidebar.button("🗑️ Reset Database Records (Wipe History)", help="Clear statements.db so Validated Statements, Needs Review, Duplicates, and Email Events all reset to 0"):
+if st.sidebar.button("🗑️ Reset Database Records (Wipe History)", help="Clear PostgreSQL records so Validated Statements, Needs Review, Duplicates, and Email Events all reset to 0"):
     store.clear()
     try:
         p = get_pipeline()
@@ -254,7 +255,8 @@ if st.sidebar.button("🗑️ Reset Database Records (Wipe History)", help="Clea
     st.sidebar.success("Database records wiped! All statement and email counters reset to 0.")
     st.rerun()
 
-if st.sidebar.button("💥 Reset Everything (Cold Start + Wipe DB)", help="Cleans both templates/ and clears statements.db to start completely from zero"):
+if st.sidebar.button("💥 Reset Everything (Cold Start + Wipe DB)", help="Cleans both templates/ and clears PostgreSQL database records to start completely from zero"):
+
     deleted_count = 0
     for f in glob.glob("templates/*.json"):
         try:
@@ -302,11 +304,12 @@ if view_mode == "📬 Mailbox Ingestion & Operations":
     with col_hdr2:
         if st.button("🔄 Check Inbox Now", key="btn_main_poll"):
             with st.spinner("Connecting to IMAP and scanning unseen messages..."):
-                poll_res = safe_poll_inbox(db_path="statements.db")
+                poll_res = safe_poll_inbox()
                 st.session_state["last_poll_result"] = poll_res
                 st.rerun()
 
-    # Load persistent database records (PostgreSQL in Cloud or SQLite locally)
+
+    # Load persistent database records (Neon Cloud PostgreSQL)
     all_stmts = store.get_all()
     email_events = store.get_email_events()
 
@@ -425,7 +428,7 @@ elif view_mode == "💼 Client Portfolio Consolidation":
     st.title("💼 Multi-Custodian Portfolio Consolidation")
     st.markdown("Consolidated family office & HNI wealth view joining accounts across disparate wealth managers.")
 
-    # Load validated statements from persistent database (PostgreSQL in Cloud or SQLite locally)
+    # Load validated statements from persistent database (Neon Cloud PostgreSQL)
     db_stmts = store.get_all()
     all_raw_results = []
     seen_hashes = set()
@@ -583,7 +586,7 @@ elif view_mode == "⚠️ Quarantined Review Queue":
     st.title("⚠️ Quarantined Review Queue")
     st.markdown("Financial safety gate: Statements with detected mathematical errors, layout drift, or checksum issues.")
 
-    tab_db_review, tab_audit_rules = st.tabs([f"Durable Quarantine Store ({'Neon Cloud PG' if getattr(store, 'is_pg', False) else 'statements.db'})", "🛡️ Safety Gate Rules & Architecture"])
+    tab_db_review, tab_audit_rules = st.tabs(["Durable Quarantine Store (Neon Cloud PostgreSQL)", "🛡️ Safety Gate Rules & Architecture"])
 
     with tab_db_review:
         st.subheader(f"Durable Quarantine Store (Persisted in {db_label})")
@@ -613,9 +616,10 @@ elif view_mode == "⚠️ Quarantined Review Queue":
             with col_rq1:
                 if st.button("🔄 Reprocess Review Queue (Retry LLM & Passwords)", key="btn_reprocess_queue_top"):
                     with st.spinner("Re-evaluating quarantined statements with active models and templates..."):
-                        reprocessed = reprocess_review_queue(db_path="statements.db")
+                        reprocessed = reprocess_review_queue()
                     st.info(f"Re-processed {len(reprocessed)} quarantined statement(s).")
                     st.rerun()
+
         else:
             st.success(f"No items currently pending review in {db_label}.")
 
@@ -664,16 +668,17 @@ elif view_mode == "⚠️ Quarantined Review Queue":
 
                     if st.button(btn_label, type="primary", key=f"btn_approve_{selected_fmt_id}"):
                         pipeline.approve_template(selected_fmt_id)
-                        reprocessed = reprocess_review_queue(db_path="statements.db")
+                        reprocessed = reprocess_review_queue()
                         st.success(f"🎉 Template `{selected_fmt_id}` signed off and promoted to active production! Re-evaluated {len(reprocessed)} quarantined statement(s).")
                         st.rerun()
 
                 with col_btn2:
                     if st.button("🔄 Reprocess Review Queue", key="btn_reprocess_queue"):
                         with st.spinner("Re-evaluating quarantined statements with active templates..."):
-                            reprocessed = reprocess_review_queue(db_path="statements.db")
+                            reprocessed = reprocess_review_queue()
                         st.info(f"Re-processed {len(reprocessed)} quarantined statement(s).")
                         st.rerun()
+
         else:
             st.info("No learned templates currently stored in `templates/`. Once statements are ingested, their format templates appear here.")
 
@@ -844,7 +849,7 @@ elif view_mode == "📤 Live Email Dispatch & Ingest":
                 with st.spinner("Waiting for email in mailbox, polling via IMAP, and executing pipeline..."):
                     import time
                     time.sleep(2)
-                    poll_summary = safe_poll_inbox(db_path="statements.db")
+                    poll_summary = safe_poll_inbox()
 
                 st.markdown("---")
                 st.markdown("### 📬 Mailbox Ingestion & Parsing Result")

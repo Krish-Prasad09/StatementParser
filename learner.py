@@ -255,7 +255,7 @@ def append_learning_log(format_id: str, outcome: str):
 class FormatLearner:
     """One-shot learner creating, schema-checking, and self-checking declarative templates."""
 
-    def __init__(self, templates_dir: str = "templates", db_path: Optional[str] = "statements.db"):
+    def __init__(self, templates_dir: str = "templates", db_path: Optional[str] = None):
         self.templates_dir = templates_dir
         self.db_path = db_path
         os.makedirs(self.templates_dir, exist_ok=True)
@@ -272,10 +272,7 @@ class FormatLearner:
         if not self.db_path:
             return
         try:
-            from persistence import StatementStore, _is_pg_target
-            is_pg, _ = _is_pg_target(self.db_path)
-            if not is_pg and not os.path.exists(self.db_path):
-                return
+            from persistence import StatementStore
             store = StatementStore(self.db_path)
             for rec in store.get_failed_learnings():
                 fid = rec.get("format_id")
@@ -302,20 +299,21 @@ class FormatLearner:
             return
         if fingerprint_hash:
             self.failed_formats.add((format_id, fingerprint_hash))
-        if self.db_path:
-            try:
-                from persistence import StatementStore
-                store = StatementStore(self.db_path)
-                store.save_failed_learning(
-                    format_id=format_id,
-                    provider_key=provider_key,
-                    layout_kind=layout_kind,
-                    fingerprint_hash=fingerprint_hash,
-                    failure_issue=failure_issue,
-                    diagnostic_message=diagnostic_message
-                )
-            except Exception:
-                pass
+        if not self.db_path:
+            return
+        try:
+            from persistence import StatementStore
+            store = StatementStore(self.db_path)
+            store.save_failed_learning(
+                format_id=format_id,
+                provider_key=provider_key,
+                layout_kind=layout_kind,
+                fingerprint_hash=fingerprint_hash,
+                failure_issue=failure_issue,
+                diagnostic_message=diagnostic_message
+            )
+        except Exception:
+            pass
 
     @staticmethod
     def extract_and_redact_document_text(file_path: str) -> str:

@@ -3,7 +3,7 @@ watch_mailbox.py
 ----------------
 IMAP Mailbox Poller & Background Ingestion Worker.
 Connects to an IMAP server over SSL, monitors for new emails with financial statement attachments,
-ingests and parses them through the ProcessingPipeline, and persists results to SQLite.
+ingests and parses them through the ProcessingPipeline, and persists results to PostgreSQL.
 
 Environment variables:
   IMAP_HOST: IMAP server hostname (e.g. imap.gmail.com)
@@ -288,7 +288,7 @@ def run_poller(
     folder: str = "INBOX",
     poll_interval: int = 60,
     run_once: bool = False,
-    db_path: str = "statements.db",
+    db_path: Optional[str] = None,
     max_retries: int = 3
 ):
     """Main polling loop for IMAP service with automatic reconnect on transient IMAP errors."""
@@ -333,7 +333,7 @@ def run_poller(
 
 
 def safe_poll_inbox(
-    db_path: str = "statements.db",
+    db_path: Optional[str] = None,
     host: Optional[str] = None,
     user: Optional[str] = None,
     password: Optional[str] = None,
@@ -342,7 +342,7 @@ def safe_poll_inbox(
 ) -> Dict[str, Any]:
     """
     Safely scans inbox once for new unseen emails, processes only emails not already
-    persisted in email_events, writes statement results and email events to SQLite,
+    persisted in email_events, writes statement results and email events to PostgreSQL,
     and returns a summary dict. Safe to invoke on dashboard startup or via 'Check Inbox Now'.
     """
     _load_local_env()
@@ -388,12 +388,12 @@ def safe_poll_inbox(
 
 
 def reprocess_review_queue(
-    db_path: str = "statements.db",
+    db_path: Optional[str] = None,
     password: Optional[str] = None,
     templates_dir: str = "templates",
 ) -> List[Dict[str, Any]]:
     """
-    Re-processes statements quarantined in 'needs_review' from SQLite persistence store
+    Re-processes statements quarantined in 'needs_review' from PostgreSQL persistence store
     using candidate password(s) or updated templates.
     """
     _load_local_env()
@@ -429,7 +429,7 @@ def reprocess_review_queue(
 def main():
     parser = argparse.ArgumentParser(description="IMAP Statement Mailbox Poller & Background Processor")
     parser.add_argument("--test-eml", help="Path to local .eml file to process offline without live IMAP server")
-    parser.add_argument("--db", default="statements.db", help="Path to SQLite persistence database")
+    parser.add_argument("--db", default=None, help="PostgreSQL connection string or target (defaults to DATABASE_URL)")
     parser.add_argument("--once", action="store_true", help="Run a single poll iteration and exit")
     parser.add_argument("--interval", type=int, default=60, help="Polling interval in seconds")
     parser.add_argument("--reprocess-review", action="store_true", help="Re-process quarantined statements in needs_review with candidate password(s)")

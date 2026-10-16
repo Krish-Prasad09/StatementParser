@@ -33,20 +33,18 @@ This project:
 | 📐 **Layout Drift Detection** | If a bank renames a column, it quarantines the file instead of guessing wrong |
 | 🔐 **Password-Protected PDFs** | Locks encrypted PDFs in quarantine; enter the password in the dashboard to unlock |
 | 🏦 **Multi-Custodian Consolidation** | Merges holdings from all your wealth managers by ISIN into one portfolio view |
-| 🚫 **Duplicate Detection** | SHA-256 hash dedup — same file sent twice? Ignored automatically |
-| ☁️ **Dual-Engine Persistence** | Cloud PostgreSQL (Neon.tech) for permanent storage + local SQLite fallback for offline dev |
+| ☁️ **Cloud Database Persistence** | PostgreSQL (Neon.tech / Supabase / RDS) for robust, permanent cloud storage |
 | 📊 **Interactive Dashboard** | Streamlit UI with 4 views: Mailbox Ops, Portfolio View, Quarantine Queue, Send Test Email |
 | 🧪 **31 Automated Tests** | 1,046 ground-truth fields verified — zero false passes allowed |
 
 ---
 
-## ☁️ Cloud Persistence: Why Neon PostgreSQL?
+## ☁️ Cloud Persistence: Neon PostgreSQL
 
-Streamlit Community Cloud runs apps inside **ephemeral (temporary) containers**. When an app is idle for a few hours, the cloud server goes to sleep, and any local file storage (like SQLite) gets wiped on the next wake-up.
+Streamlit Community Cloud runs apps inside **ephemeral (temporary) containers**. When an app is idle for a few hours, the cloud server goes to sleep, and any container local disk gets wiped on the next wake-up.
 
 To solve this in an enterprise-ready way:
-* **Production / Live Deployment:** Backed by **[Neon.tech](https://neon.tech) Serverless PostgreSQL**. Every statement, parsed ledger, and email event is permanently saved in the cloud. History is never lost, even if the server sleeps for months.
-* **Offline / Local Development:** If `DATABASE_URL` is omitted, the engine automatically falls back to local **SQLite** (`statements.db`). Anyone cloning the repo gets zero-setup, instant testing out of the box!
+* **Production & Persistent Deployment:** Backed by **[Neon.tech](https://neon.tech) Serverless PostgreSQL**. Every statement, parsed ledger, template, and email event is permanently saved in PostgreSQL. History and quarantine records are preserved across app restarts, deployments, and reboots.
 
 ---
 
@@ -71,7 +69,7 @@ The live app has 26 sample PDF statements and 5 sample emails pre-loaded. You ca
 - Python 3.10+
 - A Gmail account with IMAP enabled (or any IMAP mailbox)
 - A [Google Gemini API key](https://aistudio.google.com/) (free tier works fine)
-- *(Optional)* A free [Neon.tech](https://neon.tech) PostgreSQL database (if omitted, automatically uses local SQLite)
+- A [Neon.tech](https://neon.tech) PostgreSQL database (or any PostgreSQL connection string)
 
 ### 1️⃣ Clone the repo
 ```bash
@@ -98,8 +96,8 @@ IMAP_USER=your_email@gmail.com
 IMAP_PASSWORD=your_app_password_here
 IMAP_FOLDER=INBOX
 
-# Optional: Neon PostgreSQL connection string (if omitted, uses local statements.db)
-# DATABASE_URL=postgresql://user:pass@ep-cool-xyz.us-east-2.aws.neon.tech/neondb?sslmode=require
+# Neon PostgreSQL connection string
+DATABASE_URL=postgresql://user:pass@ep-cool-xyz.us-east-2.aws.neon.tech/neondb?sslmode=require
 ```
 > 💡 For Gmail, you need an [App Password](https://myaccount.google.com/apppasswords), not your regular password.
 
@@ -129,7 +127,7 @@ StatementParser/
 ├── parser.py            # ⚙️  Actually extracts data from PDFs using learned templates
 ├── validator.py         # 🔢  Audits the math (14 different financial checks)
 ├── consolidator.py      # 🏦  Merges multi-custodian holdings by ISIN
-├── persistence.py       # 💾  Dual-engine store: Neon PostgreSQL (Cloud) + SQLite (Local)
+├── persistence.py       # 💾  Enterprise PostgreSQL store (Neon Cloud / Supabase / RDS)
 ├── watch_mailbox.py     # 📬  IMAP poller — watches inbox for new statement emails
 ├── models.py            # 📐  Data schemas (what a "statement" looks like in code)
 ├── send_test_email.py   # 📤  Utility to send a test statement email
@@ -184,7 +182,7 @@ saves template to disk     0 AI calls, instant parse
     ↓                           ↓
 validator.py checks the math (14 checks)
     ↓
-persistence.py saves to Cloud PostgreSQL (or local SQLite)
+persistence.py saves to Cloud PostgreSQL
     ↓
 Dashboard shows results
 ```
@@ -199,7 +197,7 @@ Dashboard shows results
 | `IMAP_HOST` / `IMAP_PORT` | Your email server (e.g. `imap.gmail.com` / `993`) |
 | `IMAP_USER` / `IMAP_PASSWORD` | Your email login credentials |
 | `IMAP_FOLDER` | Which inbox folder to watch (default: `INBOX`) |
-| `DATABASE_URL` | *(Optional)* PostgreSQL connection URL (e.g. Neon.tech). If omitted, defaults to SQLite (`statements.db`) |
+| `DATABASE_URL` | PostgreSQL connection URL (e.g. Neon.tech, Supabase, AWS RDS) |
 | `STATEMENT_PASSWORDS` | *(Optional)* Comma-separated candidate passwords for encrypted PDFs |
 
 ---
@@ -208,7 +206,6 @@ Dashboard shows results
 
 - **[Streamlit](https://streamlit.io/)** — interactive dashboard UI
 - **[Neon](https://neon.tech/)** & **[PostgreSQL](https://www.postgresql.org/)** — serverless cloud database for permanent persistence
-- **[SQLite](https://www.sqlite.org/)** — zero-config local storage fallback
 - **[pdfplumber](https://github.com/jsvine/pdfplumber)** — PDF table extraction
 - **[pypdf](https://github.com/py-pdf/pypdf)** — PDF decryption
 - **[pandas](https://pandas.pydata.org/)** — data processing

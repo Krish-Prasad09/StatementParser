@@ -13,7 +13,7 @@ Comprehensive automated regression & mutation audit suite:
    Run 2 = 0 LLM calls, plus distinct failure codes: learning_failed_invalid_template,
    learning_failed_self_check, learning_failed_llm_unavailable).
 8. Provider misattribution guard (different SEBI or provider name never reuses another provider's template).
-9. Persistent SQLite duplicate & revision detection across restarts and watch_mailbox poller runs.
+9. Persistent PostgreSQL duplicate & revision detection across restarts and watch_mailbox poller runs.
 10. All 7 independent mutation audit cases (tampered Cedar holding, tampered Cedar/Aurum cash,
     unknown Cedar transaction label, renamed Aurum header column, unseen provider, unseen layout,
     duplicate .eml ingestion).
@@ -525,7 +525,7 @@ def test_provider_misattribution_guard():
 
 def test_persistent_duplicate_and_revision_detection():
     """
-    Tests Fix 3: Persistent duplicate & revision detection across SQLite restarts:
+    Tests Fix 3: Persistent duplicate & revision detection across PostgreSQL restarts:
     Running watch_mailbox.process_eml_file twice against the same .eml with fresh pipeline/repo
     instances returns 'validated' on Run 1 (with non-empty sha256_hash) and 'duplicate' on Run 2.
     """
@@ -537,13 +537,14 @@ def test_persistent_duplicate_and_revision_detection():
     try:
         # Run 1: Fresh pipeline & repo
         repo1 = StatementStore(db_path=db_path)
+        repo1.clear()
         pipe1 = ProcessingPipeline(templates_dir="test_fixtures/templates", db_path=db_path)
         results1 = process_eml_file(eml_path, pipe1, repo1, target_dir=extract_dir)
         assert len(results1) == 1
         assert results1[0]["status"] == "validated"
         assert results1[0]["sha256_hash"] and len(results1[0]["sha256_hash"]) == 64
 
-        # Verify SQLite stored the real sha256_hash and email_event
+        # Verify PostgreSQL stored the real sha256_hash and email_event
         rows = repo1.get_all()
         assert len(rows) == 1
         assert rows[0]["sha256_hash"] == results1[0]["sha256_hash"]
@@ -573,8 +574,12 @@ def test_persistent_duplicate_and_revision_detection():
         assert results3[0]["status"] == "duplicate", f"Expected duplicate on second poller run, got {results3[0]['status']}"
         assert any(i.startswith("identical_to:") for i in results3[0]["issues"])
 
-        print("[PASS] Persistent SQLite duplicate detection: message_id skipped and duplicate attachment hash caught.")
+        print("[PASS] Persistent PostgreSQL duplicate detection: message_id skipped and duplicate attachment hash caught.")
     finally:
+        try:
+            repo1.clear()
+        except Exception:
+            pass
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -1024,6 +1029,8 @@ def test_resaved_content_different_bytes_duplicate():
 
     try:
         pipe = ProcessingPipeline(templates_dir="test_fixtures/templates", db_path=db_path)
+        if pipe.store:
+            pipe.store.clear()
 
         # Run 1: original file
         res1 = pipe.process_file(src_pdf)
@@ -1045,6 +1052,11 @@ def test_resaved_content_different_bytes_duplicate():
 
         print("[PASS] Re-saved file with different bytes detected as duplicate (same_content_different_bytes).")
     finally:
+        try:
+            if pipe.store:
+                pipe.store.clear()
+        except Exception:
+            pass
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -1098,6 +1110,7 @@ def test_mailbox_poller_and_reprocess_review():
     db_path = os.path.join(temp_dir, "test_poller.db")
     try:
         store = StatementStore(db_path=db_path)
+        store.clear()
         pipe = ProcessingPipeline(templates_dir="test_fixtures/templates", db_path=db_path)
 
         # 1. Poller error isolation test using unittest.mock
@@ -1153,6 +1166,10 @@ def test_mailbox_poller_and_reprocess_review():
 
         print("[PASS] IMAP poller survives bad emails and reprocess_review_queue unlocks password-protected statements.")
     finally:
+        try:
+            store.clear()
+        except Exception:
+            pass
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -1404,7 +1421,7 @@ def test_weights_tolerances():
 
 def test_email_events_persistence_and_routing():
     """
-    Tests Fix 1 & 2: Email attachment classification and SQLite email_events persistence.
+    Tests Fix 1 & 2: Email attachment classification and PostgreSQL email_events persistence.
     1. e01 (statement PDF) -> ingest, saved to email_events and statements.
     2. e03 (newsletter with factsheet) -> ignore (newsletter_with_factsheet), saved to email_events, NOT in statements.
     3. e04 (portal link no attachment) -> ignore (portal_link_no_attachment), saved to email_events, NOT in statements.
@@ -1414,6 +1431,7 @@ def test_email_events_persistence_and_routing():
     extract_dir = os.path.join(temp_dir, "att")
     try:
         store = StatementStore(db_path=db_path)
+        store.clear()
         pipe = ProcessingPipeline(templates_dir="test_fixtures/templates", db_path=db_path)
 
         # 1. Ingest statement email
@@ -1445,8 +1463,12 @@ def test_email_events_persistence_and_routing():
         assert len(all_stmts) == 1
         assert all_stmts[0]["format_id"] == "aurum_pms_monthly"
 
-        print("[PASS] Email-level events persisted to SQLite for ingest and ignore, with reasons preserved.")
+        print("[PASS] Email-level events persisted to PostgreSQL for ingest and ignore, with reasons preserved.")
     finally:
+        try:
+            store.clear()
+        except Exception:
+            pass
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -1468,6 +1490,7 @@ def test_unsupported_attachments_and_inline_pdf_routing():
     extract_dir = os.path.join(temp_dir, "att")
     try:
         store = StatementStore(db_path=db_path)
+        store.clear()
         pipe = ProcessingPipeline(templates_dir="test_fixtures/templates", db_path=db_path)
 
         def make_eml(filename: str, payload: bytes, subject: str = "Test Subject", mime_sub: str = "octet-stream", content_id: str = None) -> str:
@@ -1529,6 +1552,10 @@ def test_unsupported_attachments_and_inline_pdf_routing():
 
         print("[PASS] Unsupported statement attachments (.zip, .xls, .xlsm, .bin, inline PDF) correctly quarantined to needs_review.")
     finally:
+        try:
+            store.clear()
+        except Exception:
+            pass
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -1577,6 +1604,8 @@ def test_v2_layout_drift_and_promotion_0_llm_calls():
     try:
         # Run 1: unseen drift variant is learned but remains unapproved.
         pipe1 = ProcessingPipeline(templates_dir=temp_tmpl_dir, db_path=db_path)
+        if pipe1.store:
+            pipe1.store.clear()
         with open("test_fixtures/templates/aurum_pms_monthly_v2.json", "r", encoding="utf-8") as f:
             v2_template = json.load(f)
         llm_prompts = []
@@ -1609,6 +1638,11 @@ def test_v2_layout_drift_and_promotion_0_llm_calls():
 
         print("[PASS] Drift variant persisted unapproved, then parses with 0 LLM calls after promotion.")
     finally:
+        try:
+            if pipe1.store:
+                pipe1.store.clear()
+        except Exception:
+            pass
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -1684,13 +1718,14 @@ def test_same_provider_multi_product_best_match():
 
 def test_durable_failed_learning_persistence():
     """
-    Tests Fix 8: Persisted failed learning attempts in SQLite prevent repeated LLM calls across restarts.
+    Tests Fix 8: Persisted failed learning attempts in PostgreSQL prevent repeated LLM calls across restarts.
     """
     temp_dir = tempfile.mkdtemp()
     db_path = os.path.join(temp_dir, "test_failed_learn.db")
 
     try:
         store = StatementStore(db_path=db_path)
+        store.clear()
         store.save_failed_learning(
             format_id="failed_layout_xyz",
             provider_key="unknown_prov",
@@ -1709,6 +1744,10 @@ def test_durable_failed_learning_persistence():
 
         print("[PASS] Failed learning attempts persist by exact fingerprint without blocking other layouts.")
     finally:
+        try:
+            store.clear()
+        except Exception:
+            pass
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -1822,11 +1861,16 @@ def test_codex_fixes_suite():
     try:
         db_p = os.path.join(temp_db_dir, "test_retry.db")
         store = StatementStore(db_path=db_p)
+        store.clear()
         store.save_email_event(message_id="msg_test_retry", status="ingest", processing_state="failed")
         assert not store.has_email_event("msg_test_retry"), "Failed email event must NOT be skipped on retry"
         store.update_email_event_processing_state("msg_test_retry", "completed")
         assert store.has_email_event("msg_test_retry"), "Completed email event must be skipped on retry"
     finally:
+        try:
+            store.clear()
+        except Exception:
+            pass
         shutil.rmtree(temp_db_dir, ignore_errors=True)
 
     # 5. US date parsing with dayfirst=False
