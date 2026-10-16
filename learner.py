@@ -280,12 +280,26 @@ class FormatLearner:
             for rec in store.get_failed_learnings():
                 fid = rec.get("format_id")
                 fhash = rec.get("fingerprint_hash") or ""
+                fissue = rec.get("failure_issue") or ""
+                # Do not load transient server downtime as a permanent blacklist
+                if fissue == "learning_failed_llm_unavailable":
+                    continue
                 if fid and fhash:
                     self.failed_formats.add((fid, fhash))
         except Exception:
             pass
 
+    def clear_failed_learning(self, format_id: Optional[str] = None):
+        """Clears in-memory failed formats cache to allow retries."""
+        if format_id:
+            self.failed_formats = {item for item in self.failed_formats if item[0] != format_id}
+        else:
+            self.failed_formats.clear()
+
     def _persist_failure(self, format_id: str, provider_key: str = "", layout_kind: str = "", fingerprint_hash: str = "", failure_issue: str = "", diagnostic_message: str = ""):
+        # Transient LLM unavailability should not permanently blacklist a layout
+        if failure_issue == "learning_failed_llm_unavailable":
+            return
         if fingerprint_hash:
             self.failed_formats.add((format_id, fingerprint_hash))
         if self.db_path:
@@ -469,8 +483,6 @@ STRICT RULES:
                 if k and k not in [item[1] for item in gemini_keys]:
                     gemini_keys.append((env_k, k))
 
-        max_attempts = 2
-
         if gemini_keys:
             primary_model = os.environ.get("LLM_MODEL", "gemini-3.8-flash")
             backup_model = os.environ.get("LLM_BACKUP_MODEL", "gemini-2.5-flash")
@@ -488,42 +500,34 @@ STRICT RULES:
                     "generationConfig": {"response_mime_type": "application/json"}
                 }
 
-                for attempt in range(1, max_attempts + 1):
-                    self.actual_http_calls += 1
-                    try:
+                self.actual_http_calls += 1
+                try:
+                    resp = requests.post(url, headers=headers, json=payload, timeout=(10, 90))
+                    if resp.status_code == 404 and "gemini-2.5-flash" in active_model:
+                        active_model = "gemini-3.5-flash"
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent"
                         resp = requests.post(url, headers=headers, json=payload, timeout=(10, 90))
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
-                            clean_json = extract_first_json_object(raw_text)
-                            return json.loads(clean_json)
-                        elif resp.status_code in (429, 500, 502, 503, 504) and attempt < max_attempts:
-                            self.last_diagnostic_message = f"HTTP {resp.status_code} (attempt {attempt})"
-                            logging.warning(_scrub_log_message(
-                                f"Gemini API ({active_model}, key #{key_idx+1}) busy/rate-limited with status {resp.status_code}. Retrying with model '{backup_model}' in 3s (attempt {attempt}/{max_attempts})..."
-                            ))
-                            # Failover model to backup_model for subsequent attempt if primary model is 503
-                            active_model = backup_model
-                            url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent"
-                            time.sleep(3.0)
-                            continue
-                        else:
-                            self.last_diagnostic_message = f"HTTP {resp.status_code}"
-                            logging.warning(_scrub_log_message(f"Gemini API ({active_model}, key #{key_idx+1}) request failed with status {resp.status_code}"))
-                    except Exception as e:
-                        if attempt < max_attempts:
-                            self.last_diagnostic_message = f"transport error: {type(e).__name__} (attempt {attempt})"
-                            logging.warning(_scrub_log_message(
-                                f"Gemini API ({active_model}, key #{key_idx+1}) transport error: {type(e).__name__}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
-                            ))
-                            time.sleep(3.0)
-                            continue
-                        self.last_diagnostic_message = f"transport error: {type(e).__name__}"
-                        logging.warning(_scrub_log_message(f"Gemini API ({active_model}, key #{key_idx+1}) error: {type(e).__name__}"))
+
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+                        clean_json = extract_first_json_object(raw_text)
+                        return json.loads(clean_json)
+                    else:
+                        self.last_diagnostic_message = f"HTTP {resp.status_code}"
+                        logging.warning(_scrub_log_message(
+                            f"Gemini API ({active_model}, key #{key_idx+1}) request failed with status {resp.status_code}"
+                        ))
+
+                except Exception as e:
+                    self.last_diagnostic_message = f"transport error: {type(e).__name__}"
+                    logging.warning(_scrub_log_message(
+                        f"Gemini API ({active_model}, key #{key_idx+1}) error: {type(e).__name__}"
+                    ))
 
                 if key_idx + 1 < len(gemini_keys):
                     logging.info(_scrub_log_message(
-                        f"Gemini API key #{key_idx+1} exhausted/failed; automatically failing over to backup Gemini key #{key_idx+2} using model '{backup_model}'..."
+                        f"Gemini API key #{key_idx+1} ({active_model}) failed; failing over to backup Gemini key #{key_idx+2} using model '{backup_model}'..."
                     ))
                     continue
 
@@ -563,7 +567,7 @@ STRICT RULES:
             except Exception:
                 pass
 
-        if persisted_failure:
+        if persisted_failure and persisted_failure.get("failure_issue") != "learning_failed_llm_unavailable":
             self.failed_formats.add((safe_id, fprint_hash))
             self.last_failure_issue = persisted_failure.get("failure_issue") or self.last_failure_issue
             self.last_diagnostic_message = persisted_failure.get("diagnostic_message") or self.last_diagnostic_message
@@ -578,7 +582,7 @@ STRICT RULES:
             self.last_failure_issue = "learning_failed_llm_unavailable"
             if not self.last_diagnostic_message:
                 self.last_diagnostic_message = "no API key configured"
-            self._persist_failure(safe_id, prov_slug, layout_slug, fprint_hash, self.last_failure_issue, self.last_diagnostic_message)
+            # Transient server outages should not be permanently blacklisted
             append_learning_log(safe_id, f"failed: {self.last_diagnostic_message}")
             calls_used = self.actual_http_calls
             self.llm_calls_made = self.actual_http_calls
@@ -626,7 +630,9 @@ STRICT RULES:
         try:
             if self.db_path:
                 from persistence import StatementStore
-                StatementStore(self.db_path).save_template(candidate_tmpl)
+                store = StatementStore(self.db_path)
+                store.save_template(candidate_tmpl)
+                store.remove_failed_learning(safe_id, fprint_hash)
         except Exception as e:
             self.last_failure_issue = "learning_failed_self_check"
             self.last_diagnostic_message = f"template persistence error: {type(e).__name__}"

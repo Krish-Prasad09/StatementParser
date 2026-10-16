@@ -759,6 +759,53 @@ class StatementStore:
             self._execute(cursor, "SELECT * FROM failed_learning_attempts ORDER BY id DESC")
             return [dict(row) for row in cursor.fetchall()]
 
+    def remove_failed_learning(self, format_id: str, fingerprint_hash: str = ""):
+        """Removes failed learning records for a format_id or fingerprint hash."""
+        with closing(self._get_connection()) as conn:
+            cursor = conn.cursor()
+            if fingerprint_hash:
+                self._execute(
+                    cursor,
+                    "DELETE FROM failed_learning_attempts WHERE format_id = ? AND fingerprint_hash = ?",
+                    (format_id, fingerprint_hash)
+                )
+            else:
+                self._execute(
+                    cursor,
+                    "DELETE FROM failed_learning_attempts WHERE format_id = ?",
+                    (format_id,)
+                )
+            conn.commit()
+
+    def clear_transient_failed_learnings(self):
+        """Cleans up any transient server-outage failures from the persistence store."""
+        with closing(self._get_connection()) as conn:
+            cursor = conn.cursor()
+            self._execute(
+                cursor,
+                "DELETE FROM failed_learning_attempts WHERE failure_issue = 'learning_failed_llm_unavailable'"
+            )
+            conn.commit()
+
+    def supersede_needs_review(self, file_path: str, exclude_id: Optional[int] = None):
+        """Marks any prior 'needs_review' records for the given file as superseded."""
+        with closing(self._get_connection()) as conn:
+            cursor = conn.cursor()
+            if exclude_id is not None:
+                self._execute(
+                    cursor,
+                    "UPDATE statements SET status = 'superseded_by_reprocess' WHERE file_path = ? AND status = 'needs_review' AND id != ?",
+                    (file_path, exclude_id)
+                )
+            else:
+                self._execute(
+                    cursor,
+                    "UPDATE statements SET status = 'superseded_by_reprocess' WHERE file_path = ? AND status = 'needs_review'",
+                    (file_path,)
+                )
+            conn.commit()
+
+
     def clear(self):
         """Clears all records (useful for test resets)."""
         with closing(self._get_connection()) as conn:

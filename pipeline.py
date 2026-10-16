@@ -207,18 +207,22 @@ class ProcessingPipeline:
             dup_of = self.ingestion.register_or_check_duplicate(effective_path, rel_name)
             if dup_of:
                 orig_result = self.processed_history.get(dup_of)
-                statements = orig_result.statements if orig_result else []
-                fmt_id = orig_result.format_id if orig_result else "duplicate_statement"
-                res = ExtractionResult(
-                    file=rel_name,
-                    format_id=fmt_id,
-                    status="duplicate",
-                    issues=[f"identical_to:{dup_of}"],
-                    statements=statements,
-                    llm_calls_made=0,
-                    sha256_hash=curr_hash
-                )
-                return res
+                # If previous processing failed because LLM was temporarily unavailable, allow running LLM again
+                if orig_result and any("learning_failed_llm_unavailable" in str(iss) for iss in (orig_result.issues or [])):
+                    dup_of = None
+                else:
+                    statements = orig_result.statements if orig_result else []
+                    fmt_id = orig_result.format_id if orig_result else "duplicate_statement"
+                    res = ExtractionResult(
+                        file=rel_name,
+                        format_id=fmt_id,
+                        status="duplicate",
+                        issues=[f"identical_to:{dup_of}"],
+                        statements=statements,
+                        llm_calls_made=0,
+                        sha256_hash=curr_hash
+                    )
+                    return res
 
             # -------------------------------------------------------------
             # STEP 2: Structural Fingerprinting & Format Matching

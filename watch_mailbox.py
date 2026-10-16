@@ -398,7 +398,10 @@ def reprocess_review_queue(
     """
     _load_local_env()
     store = StatementStore(db_path=db_path)
+    store.clear_transient_failed_learnings()
     pipeline = ProcessingPipeline(templates_dir=templates_dir, db_path=db_path)
+    if hasattr(pipeline.learner, "clear_failed_learning"):
+        pipeline.learner.clear_failed_learning()
     review_records = store.get_needs_review()
     print(f"Found {len(review_records)} statement(s) quarantined in needs_review.")
 
@@ -412,12 +415,15 @@ def reprocess_review_queue(
         print(f"  -> New Status: {res.status} | Issues: {res.issues}")
         file_sha = res.sha256_hash or (compute_sha256(file_path) if os.path.exists(file_path) else "")
         store.save_result(res, sha256_hash=file_sha)
+        if res.status == "validated":
+            store.supersede_needs_review(file_path, exclude_id=rec.get("id"))
         updated.append({
             "file": file_path,
             "status": res.status,
             "issues": res.issues
         })
     return updated
+
 
 
 def main():

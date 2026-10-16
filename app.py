@@ -591,8 +591,11 @@ elif view_mode == "⚠️ Quarantined Review Queue":
         if db_review:
             st.warning(f"Found {len(db_review)} statement(s) quarantined in {db_label}.")
             db_table = []
+            has_llm_outage = False
             for row in db_review:
                 issues_list = json.loads(row.get("issues_json", "[]"))
+                if any("learning_failed_llm_unavailable" in str(iss) for iss in issues_list):
+                    has_llm_outage = True
                 db_table.append({
                     "DB ID": row["id"],
                     "File": row["file_path"],
@@ -602,8 +605,20 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                     "Ingested At": row["created_at"]
                 })
             st.dataframe(pd.DataFrame(db_table), use_container_width=True)
+
+            if has_llm_outage:
+                st.info("💡 **Notice:** One or more statements were quarantined because the Gemini server was temporarily down / unavailable (HTTP 503 / network timeout). Click **🔄 Reprocess Review Queue** below to re-run LLM learning now that the server is online.")
+
+            col_rq1, _ = st.columns([2, 2])
+            with col_rq1:
+                if st.button("🔄 Reprocess Review Queue (Retry LLM & Passwords)", key="btn_reprocess_queue_top"):
+                    with st.spinner("Re-evaluating quarantined statements with active models and templates..."):
+                        reprocessed = reprocess_review_queue(db_path="statements.db")
+                    st.info(f"Re-processed {len(reprocessed)} quarantined statement(s).")
+                    st.rerun()
         else:
             st.success(f"No items currently pending review in {db_label}.")
+
 
         st.markdown("---")
         st.subheader("🛡️ Human Auditor Sign-Off & Template Promotion")
