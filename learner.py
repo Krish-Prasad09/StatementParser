@@ -473,7 +473,7 @@ STRICT RULES:
 
         if gemini_keys:
             primary_model = os.environ.get("LLM_MODEL", "gemini-3.8-flash")
-            backup_model = os.environ.get("LLM_BACKUP_MODEL", "gemini-flash-latest")
+            backup_model = os.environ.get("LLM_BACKUP_MODEL", "gemini-2.5-flash")
 
             for key_idx, (env_k, active_gemini_key) in enumerate(gemini_keys):
                 active_model = backup_model if (env_k == "GEMINI_BACKUP_API_KEY" or key_idx > 0) else primary_model
@@ -500,8 +500,11 @@ STRICT RULES:
                         elif resp.status_code in (429, 500, 502, 503, 504) and attempt < max_attempts:
                             self.last_diagnostic_message = f"HTTP {resp.status_code} (attempt {attempt})"
                             logging.warning(_scrub_log_message(
-                                f"Gemini API ({active_model}, key #{key_idx+1}) busy/rate-limited with status {resp.status_code}. Retrying in 3s (attempt {attempt}/{max_attempts})..."
+                                f"Gemini API ({active_model}, key #{key_idx+1}) busy/rate-limited with status {resp.status_code}. Retrying with model '{backup_model}' in 3s (attempt {attempt}/{max_attempts})..."
                             ))
+                            # Failover model to backup_model for subsequent attempt if primary model is 503
+                            active_model = backup_model
+                            url = f"https://generativelanguage.googleapis.com/v1beta/models/{active_model}:generateContent"
                             time.sleep(3.0)
                             continue
                         else:
