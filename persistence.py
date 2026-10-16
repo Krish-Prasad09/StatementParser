@@ -31,8 +31,52 @@ except ImportError:
     psycopg2 = None
 
 
+def _load_env_if_needed():
+    """
+    Auto-discovers DATABASE_URL from Streamlit Cloud secrets or local .env file.
+    This guarantees persistence.py is completely self-sufficient and connects to
+    Cloud PostgreSQL (Neon.tech) without depending on another module loading .env first.
+    """
+    if os.getenv("DATABASE_URL"):
+        return
+    # 1. Check Streamlit Cloud secrets (st.secrets) if running inside Streamlit
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets"):
+            if "DATABASE_URL" in st.secrets:
+                os.environ["DATABASE_URL"] = str(st.secrets["DATABASE_URL"])
+                return
+            for val in st.secrets.values():
+                if isinstance(val, dict) and "DATABASE_URL" in val:
+                    os.environ["DATABASE_URL"] = str(val["DATABASE_URL"])
+                    return
+    except Exception:
+        pass
+
+    # 2. Check local .env file in project root
+    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k, v = k.strip(), v.strip().strip("\"'")
+                        if k and not os.environ.get(k):
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+
 def _is_pg_target(db_path: Optional[str] = None) -> Tuple[bool, str]:
-    """Determines if the target database should be PostgreSQL."""
+    """
+    Determines if the target database should be PostgreSQL or SQLite.
+    Returns:
+      (True, postgres_conn_string) -> When DATABASE_URL is set (Neon cloud)
+      (False, sqlite_file_path)     -> When running local offline testing fallback
+    """
+    _load_env_if_needed()
     env_url = (os.getenv("DATABASE_URL") or "").strip()
     if db_path and (str(db_path).startswith("postgresql://") or str(db_path).startswith("postgres://")):
         return True, str(db_path)

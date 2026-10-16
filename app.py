@@ -52,6 +52,8 @@ from persistence import StatementStore
 from watch_mailbox import safe_poll_inbox, reprocess_review_queue
 
 store = StatementStore("statements.db")
+# Dynamically detect database type for clear interview presentation
+db_label = "Neon PostgreSQL (Cloud ☁️)" if getattr(store, "is_pg", False) else "SQLite (`statements.db` 💾)"
 
 # Startup Mailbox Scan (Runs safely once per Streamlit session)
 if "mailbox_polled_at_startup" not in st.session_state:
@@ -293,7 +295,7 @@ view_mode = st.sidebar.radio(
 # -----------------------------------------------------------------------------
 if view_mode == "📬 Mailbox Ingestion & Operations":
     st.title("📬 Mailbox Ingestion & Operations")
-    st.markdown("Complete audit trail of incoming emails, gatekeeper routing, and statement attachment ingestion from SQLite (`statements.db`).")
+    st.markdown(f"Complete audit trail of incoming emails, gatekeeper routing, and statement attachment ingestion from **{db_label}**.")
 
     # Manual poll button in main view
     col_hdr1, col_hdr2 = st.columns([3, 1])
@@ -304,7 +306,7 @@ if view_mode == "📬 Mailbox Ingestion & Operations":
                 st.session_state["last_poll_result"] = poll_res
                 st.rerun()
 
-    # Load SQLite records
+    # Load persistent database records (PostgreSQL in Cloud or SQLite locally)
     all_stmts = store.get_all()
     email_events = store.get_email_events()
 
@@ -379,7 +381,7 @@ if view_mode == "📬 Mailbox Ingestion & Operations":
             df_filtered = df_events[df_events["Status"].isin(status_filter)]
             st.dataframe(df_filtered, use_container_width=True)
         else:
-            st.info("No email events logged in SQLite store yet. Use 'Check Inbox Now' or upload an .eml file.")
+            st.info(f"No email events logged in {db_label} yet. Use 'Check Inbox Now' or upload an .eml file.")
 
     with tab_stmts:
         st.subheader("Processed Attachment Records from Mailbox & Uploads")
@@ -413,7 +415,7 @@ if view_mode == "📬 Mailbox Ingestion & Operations":
             df_stmts_filtered = df_stmts[df_stmts["Status"].isin(status_stmt_filter)]
             st.dataframe(df_stmts_filtered, use_container_width=True)
         else:
-            st.info("No statement records logged in SQLite store yet.")
+            st.info(f"No statement records logged in {db_label} yet.")
 
 
 # -----------------------------------------------------------------------------
@@ -423,7 +425,7 @@ elif view_mode == "💼 Client Portfolio Consolidation":
     st.title("💼 Multi-Custodian Portfolio Consolidation")
     st.markdown("Consolidated family office & HNI wealth view joining accounts across disparate wealth managers.")
 
-    # Load validated statements from SQLite store
+    # Load validated statements from persistent database (PostgreSQL in Cloud or SQLite locally)
     db_stmts = store.get_all()
     all_raw_results = []
     seen_hashes = set()
@@ -581,13 +583,13 @@ elif view_mode == "⚠️ Quarantined Review Queue":
     st.title("⚠️ Quarantined Review Queue")
     st.markdown("Financial safety gate: Statements with detected mathematical errors, layout drift, or checksum issues.")
 
-    tab_db_review, tab_audit_rules = st.tabs(["Durable Quarantine Store (statements.db)", "🛡️ Safety Gate Rules & Architecture"])
+    tab_db_review, tab_audit_rules = st.tabs([f"Durable Quarantine Store ({'Neon Cloud PG' if getattr(store, 'is_pg', False) else 'statements.db'})", "🛡️ Safety Gate Rules & Architecture"])
 
     with tab_db_review:
-        st.subheader("Durable Quarantine Store (Persisted from IMAP Worker & Uploads)")
+        st.subheader(f"Durable Quarantine Store (Persisted in {db_label})")
         db_review = store.get_needs_review()
         if db_review:
-            st.warning(f"Found {len(db_review)} statement(s) quarantined in SQLite database.")
+            st.warning(f"Found {len(db_review)} statement(s) quarantined in {db_label}.")
             db_table = []
             for row in db_review:
                 issues_list = json.loads(row.get("issues_json", "[]"))
@@ -601,7 +603,7 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                 })
             st.dataframe(pd.DataFrame(db_table), use_container_width=True)
         else:
-            st.success("No items currently pending review in SQLite database.")
+            st.success(f"No items currently pending review in {db_label}.")
 
         st.markdown("---")
         st.subheader("🛡️ Human Auditor Sign-Off & Template Promotion")
@@ -751,7 +753,7 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                         if "password_required" in unlock_res.issues or "pdf_crypto_dependency_missing" in unlock_res.issues:
                             st.error("❌ Wrong password! Could not decrypt the PDF. Please verify the client password.")
                         else:
-                            # Update existing SQLite record and remove from quarantine
+                            # Update existing database record and remove from quarantine
                             store.update_statement_status(selected_locked["db_id"], unlock_res)
                             if unlock_res.status == "validated":
                                 st.success(f"✅ Correct password! Statement successfully decrypted, audited (VALIDATED), and extracted (LLM calls: {unlock_res.llm_calls_made}).")
@@ -775,7 +777,7 @@ elif view_mode == "⚠️ Quarantined Review Queue":
         4. **📑 Continuation Page Verification:** Statements indicating 'Page 1 of 2' missing follow-on holdings trigger `incomplete_document_missing_continuation_page`.
         5. **🚨 Layout Drift Quarantine:** When a known provider modifies headers or table layout, the system flags `layout_drift_known_provider` and isolates the document until template sign-off.
         6. **📷 Text-Layer Gate:** Scanned image-only PDFs with < 30 characters are detected in < 15ms and routed to OCR review (`no_text_layer_requires_ocr`).
-        7. **♻️ 0ms Byte Deduplication:** Byte-identical PDFs are identified via SHA-256 hash lookup in SQLite and flagged as `duplicate` with zero redundant processing.
+        7. **♻️ 0ms Byte Deduplication:** Byte-identical PDFs are identified via SHA-256 hash lookup in the database and flagged as `duplicate` with zero redundant processing.
         """)
 
 

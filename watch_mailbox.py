@@ -64,10 +64,10 @@ def process_eml_file(
     target_dir: str = "ingested_attachments"
 ) -> List[Dict[str, Any]]:
     """
-    Processes an EML file via IngestionEngine, persists email_events to SQLite,
+    Processes an EML file via IngestionEngine, persists email_events to the database,
     filters noise (newsletters, factsheets), routes unsupported/ambiguous files to needs_review,
-    syncs seen hashes and revisions from SQLite before parsing, runs pipeline,
-    and persists ExtractionResult with its real SHA-256 hash to SQLite.
+    syncs seen hashes and revisions from the database before parsing, runs pipeline,
+    and persists ExtractionResult with its real SHA-256 hash to the database.
     """
     _load_local_env()
     store.sync_to_pipeline(pipeline)
@@ -97,7 +97,7 @@ def process_eml_file(
         received_at=email_res.get("date", ""),
     )
     if claim == "completed":
-        print(f"  [SKIPPED] Email message_id '{msg_id}' already processed in SQLite.")
+        print(f"  [SKIPPED] Email message_id '{msg_id}' already processed in database.")
         return []
     if claim == "in_progress":
         raise EmailProcessingInProgress(f"Email message_id '{msg_id}' is already being processed.")
