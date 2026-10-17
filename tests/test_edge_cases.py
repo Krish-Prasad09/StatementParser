@@ -20,6 +20,7 @@ Comprehensive automated regression & mutation audit suite:
 """
 
 import os
+os.environ["STATEMENT_PARSER_TEST_MODE"] = "1"
 import json
 import shutil
 import tempfile

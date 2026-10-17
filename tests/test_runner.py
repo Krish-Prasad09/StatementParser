@@ -12,6 +12,7 @@ Asserts:
 """
 
 import os
+os.environ["STATEMENT_PARSER_TEST_MODE"] = "1"
 import csv
 import json
 import time

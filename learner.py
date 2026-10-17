@@ -255,9 +255,16 @@ def append_learning_log(format_id: str, outcome: str):
 class FormatLearner:
     """One-shot learner creating, schema-checking, and self-checking declarative templates."""
 
-    def __init__(self, templates_dir: str = "templates", db_path: Optional[str] = None):
+    def __init__(self, templates_dir: str = "templates", db_path: Optional[str] = None, store: Optional[Any] = None):
         self.templates_dir = templates_dir
         self.db_path = db_path
+        self.store = store
+        if self.store is None and self.db_path:
+            try:
+                from persistence import StatementStore
+                self.store = StatementStore(self.db_path)
+            except Exception:
+                self.store = None
         os.makedirs(self.templates_dir, exist_ok=True)
         self.parser = StatementParser()
         self.validator = FinancialValidator()
@@ -269,12 +276,17 @@ class FormatLearner:
         self._load_persisted_failures()
 
     def _load_persisted_failures(self):
-        if not self.db_path:
+        target_store = self.store
+        if target_store is None and self.db_path:
+            try:
+                from persistence import StatementStore
+                target_store = StatementStore(self.db_path)
+            except Exception:
+                target_store = None
+        if target_store is None:
             return
         try:
-            from persistence import StatementStore
-            store = StatementStore(self.db_path)
-            for rec in store.get_failed_learnings():
+            for rec in target_store.get_failed_learnings():
                 fid = rec.get("format_id")
                 fhash = rec.get("fingerprint_hash") or ""
                 fissue = rec.get("failure_issue") or ""
@@ -299,12 +311,17 @@ class FormatLearner:
             return
         if fingerprint_hash:
             self.failed_formats.add((format_id, fingerprint_hash))
-        if not self.db_path:
+        target_store = self.store
+        if target_store is None and self.db_path:
+            try:
+                from persistence import StatementStore
+                target_store = StatementStore(self.db_path)
+            except Exception:
+                target_store = None
+        if target_store is None:
             return
         try:
-            from persistence import StatementStore
-            store = StatementStore(self.db_path)
-            store.save_failed_learning(
+            target_store.save_failed_learning(
                 format_id=format_id,
                 provider_key=provider_key,
                 layout_kind=layout_kind,
@@ -322,10 +339,16 @@ class FormatLearner:
     def has_template(self, format_id: str) -> bool:
         """Checks the persistent store and the local template cache."""
         safe_id = re.sub(r"[^a-z0-9_]", "_", str(format_id).lower()).strip("_")
-        if self.db_path:
+        target_store = self.store
+        if target_store is None and self.db_path:
             try:
                 from persistence import StatementStore
-                if StatementStore(self.db_path).get_template(safe_id):
+                target_store = StatementStore(self.db_path)
+            except Exception:
+                target_store = None
+        if target_store is not None:
+            try:
+                if target_store.get_template(safe_id):
                     return True
             except Exception:
                 pass
@@ -335,10 +358,16 @@ class FormatLearner:
     def load_template(self, format_id: str) -> Optional[Dict[str, Any]]:
         """Loads a template from persistent storage, then the local cache."""
         safe_id = re.sub(r"[^a-z0-9_]", "_", str(format_id).lower()).strip("_")
-        if self.db_path:
+        target_store = self.store
+        if target_store is None and self.db_path:
             try:
                 from persistence import StatementStore
-                stored = StatementStore(self.db_path).get_template(safe_id)
+                target_store = StatementStore(self.db_path)
+            except Exception:
+                target_store = None
+        if target_store is not None:
+            try:
+                stored = target_store.get_template(safe_id)
                 if stored:
                     return stored
             except Exception:
@@ -626,11 +655,13 @@ STRICT RULES:
             return None, calls_used
 
         try:
-            if self.db_path:
+            target_store = self.store
+            if target_store is None and self.db_path:
                 from persistence import StatementStore
-                store = StatementStore(self.db_path)
-                store.save_template(candidate_tmpl)
-                store.remove_failed_learning(safe_id, fprint_hash)
+                target_store = StatementStore(self.db_path)
+            if target_store is not None:
+                target_store.save_template(candidate_tmpl)
+                target_store.remove_failed_learning(safe_id, fprint_hash)
         except Exception as e:
             self.last_failure_issue = "learning_failed_self_check"
             self.last_diagnostic_message = f"template persistence error: {type(e).__name__}"
@@ -646,7 +677,7 @@ STRICT RULES:
             with open(out_path, "w", encoding="utf-8") as f:
                 json.dump(candidate_tmpl, f, indent=2)
         except OSError:
-            if not self.db_path:
+            if not self.store and not self.db_path:
                 self.last_failure_issue = "learning_failed_self_check"
                 self.last_diagnostic_message = "template file write failed"
                 self._persist_failure(

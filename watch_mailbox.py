@@ -293,7 +293,7 @@ def run_poller(
 ):
     """Main polling loop for IMAP service with automatic reconnect on transient IMAP errors."""
     store = StatementStore(db_path=db_path)
-    pipeline = ProcessingPipeline(db_path=db_path)
+    pipeline = ProcessingPipeline(db_path=db_path, store=store)
 
     print(f"Connecting to IMAP {host}:{port} as {user}...")
     mail = None
@@ -361,7 +361,7 @@ def safe_poll_inbox(
         }
 
     store = StatementStore(db_path=db_path)
-    pipeline = ProcessingPipeline(db_path=db_path)
+    pipeline = ProcessingPipeline(db_path=db_path, store=store)
 
     mail = None
     try:
@@ -399,7 +399,7 @@ def reprocess_review_queue(
     _load_local_env()
     store = StatementStore(db_path=db_path)
     store.clear_transient_failed_learnings()
-    pipeline = ProcessingPipeline(templates_dir=templates_dir, db_path=db_path)
+    pipeline = ProcessingPipeline(templates_dir=templates_dir, db_path=db_path, store=store)
     if hasattr(pipeline.learner, "clear_failed_learning"):
         pipeline.learner.clear_failed_learning()
     review_records = store.get_needs_review()
@@ -456,7 +456,7 @@ def main():
             print(f"Error: EML file '{args.test_eml}' not found.")
             sys.exit(1)
         store = StatementStore(db_path=args.db)
-        pipeline = ProcessingPipeline(db_path=args.db)
+        pipeline = ProcessingPipeline(db_path=args.db, store=store)
         results = process_eml_file(args.test_eml, pipeline, store)
         print(f"\nCompleted offline processing of {args.test_eml}: {len(results)} statement(s) parsed.")
         return

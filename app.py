@@ -101,7 +101,7 @@ st.markdown("""
 
 @st.cache_resource
 def get_pipeline():
-    return ProcessingPipeline(templates_dir="templates")
+    return ProcessingPipeline(templates_dir="templates", store=store)
 
 
 
