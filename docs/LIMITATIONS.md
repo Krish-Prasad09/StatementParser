@@ -1,150 +1,66 @@
-# Activv Money — Statement Parser Limitations & Operating Boundaries
+#Limitations:
 
-This document provides a candid, specific disclosure of the operating boundaries, known edge-case failure modes, issue codes, and human-in-the-loop protocols for the PMS/AIF Statement Parser.
-
----
-
-## 1. Supported Layout Families (`layout_kind`)
-
-The deterministic parser (`parser.py`) and `FormatTemplate` schema (`models.py`) support five concrete layout families:
-1. **`ruled_table`**: PDFs containing grid-ruled or whitespace-aligned tables extractable via `pdfplumber.extract_tables()`.
-2. **`monospace_text`**: Fixed-width plaintext statements where sections (`PORTFOLIO SUMMARY`, `HOLDINGS AS ON`, `TRANSACTIONS`) and line rows are matched via template regexes and label mappings.
-3. **`ruled_lines_horizontal_only`**: Horizontal-rule ledger statements with ordered summary columns, holdings rows, and debit/credit narration entries.
-4. **`xlsx`**: Multi-sheet Excel workbooks (`Summary`, `Holdings`, `Transactions`) parsed via `openpyxl`.
-5. **`csv_sectioned`**: Single-file sectioned CSV exports with explicit block markers (`SUMMARY`, `HOLDINGS`, `TRANSACTIONS`).
-
-### Boundary
-If an asset manager issues an exotic, non-standard layout outside these five layout families (for example, multi-column newspaper layouts, Infographic/chart-only PDFs, or nested pivot tables), the generated template will fail the deterministic self-check (`learning_failed_self_check`) and require manual parser extension or human template authoring.
+## 1. Portfolio Consolidation (Work in Progress)
+The portfolio consolidation feature in Tab 2 is currently quite basic and needs more work. Consider this module an early-stage prototype rather than a finished work. It was made in less time without any code review so things may or may not work. I wanted to add an export to xlsx feature so that this consolidated data could be exported there but for now this is not implemented.
 
 ---
 
-## 2. Scanned Image-Only Documents (No Embedded OCR)
+## 2. Scanned & Image-Only PDFs (No Bundled OCR)
+The system will not attempt to parse image only pdf as data extraction is required from the table by python coding and from images the task was difficult. 
 
-### Current Behavior
-The system identifies scanned or image-based PDFs (such as `sample_data/edge_cases/18_scanned_aurum_A1.pdf`) by inspecting the character count of the PDF text layer after decryption. If a PDF yields fewer than 30 characters across all pages, `ingestion.py` routes the file to `needs_review` with:
-```json
-"issues": ["no_text_layer_requires_ocr"]
-```
-
-### Boundary
-No OCR engine (Tesseract, PaddleOCR, or cloud OCR) is bundled inside the pipeline. Image-only PDFs are quarantined for external OCR preprocessing.
+Instead of guessing or crashing, it immediately routes the file to the Review Queue with the issue code `no_text_layer_requires_ocr`. I didn't have much idea how to handle them, so I thought to send it for human review.
 
 ---
 
-## 3. Password-Protected & Encrypted PDFs
+## 3. Unsupported Attachments: ZIP Archives and Legacy Excel
+Emails sent to the system can contain various attachment types. The engine currently accepts and parses three formats: **`.pdf`**, **`.xlsx`**, and **`.csv`**.
 
-### Current Behavior
-Encrypted PDFs are detected during ingestion via `pypdf.PdfReader.is_encrypted`:
-- **Explicit Passwords Only:** The engine attempts decryption using candidate passwords supplied explicitly to `process_file(..., password=...)`, via the review queue, or via the comma-separated `STATEMENT_PASSWORDS` environment variable.
-- **No Pattern Guessing:** The system does **not** derive or guess passwords from PAN, date of birth (DOB), client name, or account patterns (since those fields reside inside the encrypted PDF payload itself).
-- **Crypto Dependency Boundary:** Decrypting AES-128 and AES-256 encrypted PDFs requires the `cryptography` package. If decryption fails due to a missing cryptographic dependency, the file is quarantined with issue `pdf_crypto_dependency_missing` rather than being misclassified as an OCR/no-text-layer issue.
-- **Safe Temp Lifecycle:** Upon successful decryption, `ingestion.py` writes a temporary decrypted PDF, hashes and parses the decrypted file, and deletes the temporary file in a `finally` block.
-- If no password is supplied or all candidate passwords fail, the file fails closed to `needs_review` with:
-```json
-"issues": ["password_required"]
-```
+* **ZIP Files (`zip_attachment_requires_manual_review`):** We deliberately do not auto-extract `.zip` archives. Unpacking unverified zip files in an automated email pipeline introduces risks hidden malware. Any email with a zip attachment is safely quarantined for manual review.
+* **Legacy `.xls` & Macro `.xlsm` (`unsupported_statement_attachment_type`):** system deals with clean, structured `.xlsx` or `.csv` data.
 
 ---
 
-## 4. Date Ambiguity & Parsing Conventions
+## 4. One-Shot Format Learning Window (First 3 Pages)
+When an unseen statement arrives and the system calls the LLM to learn the layout, it only extracts text from the **first three pages** (`pdf.pages[:3]`).
 
-### Operating Boundary
-- **Day-First Default:** Dates across transactions and reporting periods are parsed day-first by default (`DD-MM-YYYY`, `DD/MM/YYYY`, `DD-Mon-YYYY`, `DD.MM.YYYY`), which is the standard regulatory convention for Indian PMS/AIF managers.
-- **Ambiguous Formats:** For ambiguous numeric dates where both day and month $\le 12$ (e.g. `04/05/2026`), the parser assumes day-first unless the format template provides an explicit `period.format` specification (e.g. `MM/DD/YYYY`). Statements strictly following US month-first conventions require a template-specific `period.format` rule.
-
----
-
-## 5. Three-Way Pre-Classification Heuristics
-
-### Current Behavior
-`IngestionEngine.classify_document()` classifies incoming PDFs into three outcomes:
-1. **`not_a_statement`**: Explicit negative markers in the document header (`MONTHLY FUND FACTSHEET`, `TAX INVOICE`, `CONTRACT NOTE`, `FORM 16A`) when no client portfolio holdings table is present.
-2. **`statement`**: Documents containing either (a) all three structural pillars (client identifier + reporting period/date range + portfolio/holdings markers) or (b) valid ISINs alongside a holdings/valuation table.
-3. **`ambiguous`**: Documents that match neither rule (e.g., generic prose letters or partial statements missing standard labels) fail closed to `needs_review` with:
-```json
-"issues": ["classification_uncertain"]
-```
+* **Why we did this:** It keeps LLM token usage low (<1,500 tokens), reduces API cost, and keeps synthesis speed less.
+* **The boundary:** If a wealth manager sends a document where Pages 1 to 3 are purely cover letters, marketing text, or market commentary, and the actual portfolio holdings table only starts on **Page 4 or later**, the LLM won't see the table headers and template generation will fail.
+* **Safety:** When this happens, the system fails closed with `learning_failed_self_check` and quarantines the file—it never generates a bad or incomplete template. 
+*(Note: This 3-page limit is strictly for the initial template learning step. Once a template exists, the deterministic parser processes **every single page** without any page limit).*
 
 ---
 
-## 6. One-Shot Learning & Self-Check Failure Modes
+## 5. Date Formats & Ambiguity
+By default, the date parser operates on the standard Indian financial convention of **Day-First** (`DD/MM/YYYY`, `DD-MM-YYYY`, `DD.MM.YYYY`).
 
-### Cold Start vs. Live LLM Learning
-- **Empty Runtime Store:** `templates/` begins empty. The nine anonymized parser fixtures reside only in `test_fixtures/templates/`; the runtime pipeline does not read them.
-- **One-Shot Learning Path:** For a first-seen provider or layout, `FormatLearner` (`learner.py`) redacts PII from the document text, constructs a prompt containing the `FormatTemplate` JSON Schema and a worked example, and makes at most one LLM request. A response that fails schema, PII, or financial self-check validation is discarded and routed to `needs_review`; the system does not retry or call a second provider.
-- **Durable Failure Persistence:** Failed learning attempts are persisted in SQLite by exact format fingerprint. The same malformed layout is not repeatedly retried, but a materially different layout from the provider can still be learned.
-- **Model Configuration:** Configurable via the `LLM_MODEL` (defaults to `gemini-3.8-flash`) and `LLM_BACKUP_MODEL` (defaults to `gemini-flash-latest`) environment variables, with primary `GEMINI_API_KEY` and fallback `GEMINI_BACKUP_API_KEY`.
-- **Mock Testing:** In CI and local test suites without live API keys, the live synthesis and self-check loop is verified using mock LLM responses on unseen synthetic providers (`meridian_wealth_pms`) and mutated row-label variants.
-
-Three distinct failure codes govern quarantine:
-- **`learning_failed_llm_unavailable`**: No API key (`GEMINI_API_KEY` / `GEMINI_BACKUP_API_KEY`) is configured, network request failed, or retry attempts were exhausted. Zero templates are written.
-- **`learning_failed_invalid_template`**: The LLM returned malformed JSON, violated the `FormatTemplate` Pydantic schema, or leaked PII (PANs, client names, emails, phone numbers, ISINs) into the template. Zero templates are written.
-- **`learning_failed_self_check`**: The LLM returned a syntactically valid `FormatTemplate`, but when `StatementParser` executed it on the sample document and `FinancialValidator` audited the output, critical validation issues remained (e.g., `missing_required_metadata`, `empty_statement_zero_balances`, `summary_rollforward_mismatch`, `closing_value_ne_holdings_total`). The candidate template is discarded and never saved to `templates/`.
-
-### Top-3 Pages Slicing Boundary During Format Learning (`pdf.pages[:3]`)
-- **Design Decision & Token Optimization:** During one-shot template learning (`extract_and_redact_document_text()` in `learner.py`), the system extracts text only from the first three pages (`pdf.pages[:3]`). This keeps prompt token payloads small (<1,500 tokens), reduces LLM API latency to under 3 seconds, and minimizes external network surface area.
-- **Known Failure Mode:** If an unseen wealth manager issues a document where Pages 1 to 3 consist entirely of cover pages, promotional letters, disclaimers, or fund manager commentary, and the actual portfolio holdings table only begins on **Page 4 or later**, the LLM prompt will not contain the table headers.
-- **Fail-Safe Behavior:** The system **never silently emits partial or corrupted data**. During the mandatory learn-time self-check (`self_check_template()`), the candidate template is executed on the full sample PDF. Because zero holdings are extracted, the self-check fails immediately with `learning_failed_self_check`, the candidate template is discarded, and the statement is safely quarantined to `needs_review`.
-- **Production Roadmap (Table-Aware Page Sampler):** In future iterations, replace the sequential slice (`pages[:3]`) with dynamic sampling: always include Page 1 (for metadata/PAN), plus the first two pages detected with `page.find_tables()` or financial table keywords.
-- **Important Note on Deterministic Parsing:** This 3-page limitation applies **strictly to the one-shot learning step**. The deterministic parser (`parser.py`) iterates through **every single page** (`for page in pdf.pages:`) without page limits, ensuring 100% of holdings and transactions across all continuation pages are extracted.
+* If a date is ambiguous (e.g., `04/05/2026`), the system interprets it as **May 4th**, not April 5th.
+* If a foreign or US-based fund manager issues a statement strictly following Month-First (`MM/DD/YYYY`), there may be issue.
 
 ---
 
-## 7. Layout Drift & Provider Identity Guards
+## 6. Layout Complexity & Exotic Formats
+The deterministic parser supports 5 specific layout families:
+1. `ruled_table` (standard grid tables)
+2. `monospace_text` (plain text columns)
+3. `ruled_lines_horizontal_only` (ledger-style tables)
+4. `xlsx` (Excel sheets)
+5. `csv_sectioned` (multi-block CSV files)
 
-- **Cross-Provider Guard:** `FormatFingerprinter` (`fingerprinter.py`) never matches a template if the document's SEBI registration number or provider name conflicts with the template's (`provider_mismatch_template`).
-- **Header Noise & Banner Isolation:** Top-of-page noise lines (such as `Generated 12-Oct-2026 | CONFIDENTIAL` or page headers) are filtered out via `find_provider_in_text()` so that corporate identity matching relies on the SEBI registration line and company title keywords (`Ltd`, `PMS`, `Capital`, `Wealth`, etc.).
-- **Multiple Products & Best-Match Ranking:** When a provider offers multiple products sharing the same layout kind, `fingerprinter.py` computes header/fingerprint similarity across all candidate templates and ranks by highest score, selecting the best product match without false drift flags.
-- **Column & Header Drift:** If a known provider renames or drops a mapped column (e.g., renaming `"Market Value (Rs.)"` to `"Mkt Val (Rs.)"`) or alters its table headers below 0.75 similarity, the statement is quarantined to `needs_review` with `layout_drift_known_provider` and `expected_column_missing:<column_name>`.
-- **Approval & Promotion:** Drifted templates (`_v2`) carry `approved: false` until reviewed. Once promoted via `pipeline.promote_template()`, subsequent matching statements parse as known formats with `status=validated` and 0 LLM calls.
+If an asset manager issues an exotic or non-tabular statement—such as a magazine-style infographic, multi-column newsletter layout, or complex nested pivot table—the engine will not be able to model it as a declarative template. These edge-case documents will fail the automated self-check and must be reviewed manually.
 
----
 
-## 8. Financial Auditor Tolerances
+## 7. LLM API Availability & Rate Limiting (Gemini Quota)
+For cold-start format learning on brand new statements, the engine relies on the Google Gemini API (`gemini-3.8-flash`). Even though the pipeline supports automatic fallback to a backup key (`GEMINI_BACKUP_API_KEY`), there are times when both keys may fail:
+* Rate limits / Quota exceeded.
+* Network timeouts or transient downtime from Google's API endpoints.
 
-The financial auditor (`validator.py`) enforces the following explicit tolerances:
-- **Monetary Sums & Roundings (`MONEY_TOLERANCE`):** `₹1.00` (1 INR) tolerance for roll-forward equations, fee reconciliation, and cash summary comparisons.
-- **Per-Row Price Verification (`QTY_PRICE_TOLERANCE_PCT`):** `0.5%` (`0.005`) relative tolerance for `abs(quantity) * price == market_value` (minimum `₹1.00`).
-- **Holding Weights Tolerances (`TOTAL_WEIGHT_TOLERANCE = 0.50`, `HOLDING_WEIGHT_TOLERANCE = 0.10`):** Total portfolio weights (including printed cash weight) must sum to 100 within +/-0.5, and each individual holding weight must match its calculated proportion (market_value / total) * 100 within +/-0.1.
-- **AIF Units x NAV per Unit (`NAV_PER_UNIT_TOLERANCE`):** `₹1.00` (1 INR) tolerance for `units * nav_per_unit == closing`.
+**How the system handles this safely:**
+The engine never crashes or hallucinates if the API is down. Instead, it fails closed, records the  error, and quarantines the statement in the Review Queue with:
+`learning_failed_llm_unavailable`
 
----
+No partial or corrupted templates are saved. Furthermore, **all previously learned formats continue to parse 100% offline with zero LLM calls**.
 
-## 9. Complete Issue Code Reference
+## 8. Review Queue Quarantine feature option in sidebar
+The Quarantined Review Queue allows operators to unlock password-protected PDFs and sign off on drifted templates. However, few bugs were found at the last moment and were tried to fix but it is possible that some errors may still remain unfortunately and I will try my best to figure them out soon if exist.
 
-| Issue Code | Meaning |
-|---|---|
-| `no_text_layer_requires_ocr` | PDF has no extractable text layer (<30 chars). |
-| `password_required` | Encrypted PDF could not be unlocked with `STATEMENT_PASSWORDS`. |
-| `pdf_crypto_dependency_missing` | Encrypted PDF decryption failed due to missing cryptographic library (`cryptography`). |
-| `classification_uncertain` | Document is neither a clear statement nor a known negative document type. |
-| `zip_attachment_requires_manual_review` | Email contained a `.zip` attachment requiring manual operator inspection. |
-| `unsupported_statement_attachment_type` | Email contained an unsupported statement file format (e.g. `.xls`, `.xlsm`). |
-| `inline_pdf_missing_filename` | Email contained an inline PDF without an explicit filename attachment header. |
-| `ambiguous_attachment_requires_review` | Email contained an unrecognized non-standard attachment requiring review. |
-| `identical_to:<path>` | Hard duplicate (identical SHA-256 content hash). |
-| `same_content_different_bytes` | Duplicate statement with identical data and file type but re-saved byte differences. |
-| `revision_of_existing_statement` | Same `(provider, client_id, period_end)` with a different content/financial hash. |
-| `layout_drift_known_provider` | Known provider altered table structure or renamed mapped columns. |
-| `expected_column_missing:<col>` | A column required by `template.holdings.mapping` is missing from the table. |
-| `provider_mismatch_template` | Extracted document provider disagrees with the matched template's provider. |
-| `learning_failed_llm_unavailable` | Unseen format encountered with no LLM API key or API error. |
-| `learning_failed_invalid_template` | LLM output failed `FormatTemplate` schema validation or PII leak check. |
-| `learning_failed_self_check` | Candidate template failed deterministic parser/validator self-check on sample. |
-| `incomplete_document_missing_continuation_page` | Page footer (`Page X of Y` or `Continued on page...`) indicates missing pages. |
-| `missing_required_metadata` | Missing `client_id` or `period_end`. |
-| `empty_statement_zero_balances` | Zero closing balance with zero holdings. |
-| `holdings_sum_ne_stated_total_equity` | Sum of holdings market values != stated Total Equity row. |
-| `closing_value_ne_holdings_total` | Holdings sum + cash != Closing balance/NAV. |
-| `cash_summary_vs_row_mismatch` | Cash in summary table disagrees with cash row in holdings table. |
-| `summary_rollforward_mismatch` | Opening + Inflow - Outflow + Gain - Fee != Closing. |
-| `invalid_isin_checksum` | Security ISIN failed ISO 6166 Mod-10 Luhn check digit verification. |
-| `duplicate_holding_isin` | Same ISIN appears multiple times in the same side (`long`/`short`) of holdings. |
-| `negative_quantity_in_long_only_template` | Holding quantity is negative in a long-only template (`supports_short: false`). |
-| `invalid_period_range` | Statement `period_end` strictly precedes `period_start`. |
-| `holding_qty_price_mismatch` | Holding `quantity * price != market_value` beyond 0.5% tolerance. |
-| `holdings_weight_sum_invalid` | Sum of holding `weight_pct` values deviates from 100% beyond 0.5% (or 3%) tolerance. |
-| `unmapped_transaction_type` | Transaction mapped to `"other"` because its label is not in `type_map`. |
-| `transaction_date_outside_period` | Transaction date falls outside `[period_start, period_end]`. |
-| `units_times_nav_per_unit_mismatch` | `units * nav_per_unit != closing` beyond ₹1.00 tolerance. |
-| `template_missing_row_labels` | Non-blocking notice: template lacked explicit row labels, falling back to defaults. |
+It is possible that some more bugs would be there, and if I got any I would try to fix it asap....
