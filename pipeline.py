@@ -87,6 +87,8 @@ class ProcessingPipeline:
         if not data:
             return False
         data["approved"] = True
+        if "status" in data:
+            data["status"] = "active"
         try:
             self.persist_template(data)
         except Exception:

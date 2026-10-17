@@ -601,10 +601,13 @@ elif view_mode == "⚠️ Quarantined Review Queue":
             st.warning(f"Found {len(db_review)} statement(s) quarantined in {db_label}.")
             db_table = []
             has_llm_outage = False
+            has_layout_drift = False
             for row in db_review:
                 issues_list = json.loads(row.get("issues_json", "[]"))
                 if any("learning_failed_llm_unavailable" in str(iss) for iss in issues_list):
                     has_llm_outage = True
+                if any("layout_drift_known_provider" in str(iss) for iss in issues_list):
+                    has_layout_drift = True
                 db_table.append({
                     "DB ID": row["id"],
                     "File": row["file_path"],
@@ -614,6 +617,9 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                     "Ingested At": row["created_at"]
                 })
             st.dataframe(pd.DataFrame(db_table), use_container_width=True)
+
+            if has_layout_drift:
+                st.warning("🚨 **Layout Drift Intercepted:** One or more statements were quarantined because a known wealth manager or bank altered its layout (e.g. renamed or missing column). Inspect candidate templates and promote them in the **Human Auditor Sign-Off** panel below to unlock these statements.")
 
             if has_llm_outage:
                 st.info("💡 **Notice:** One or more statements were quarantined because the Gemini server was temporarily down / unavailable (HTTP 503 / network timeout). Click **🔄 Reprocess Review Queue** below to re-run LLM learning now that the server is online.")
@@ -640,59 +646,122 @@ elif view_mode == "⚠️ Quarantined Review Queue":
             "allowing subsequent statements from this provider to parse deterministically with 0 LLM calls."
         )
 
-        # Discover candidate templates from durable storage and the local cache.
+        # Discover candidate and active templates from durable storage and the local cache.
+        templates_map = dict(pipeline.fingerprinter.templates)
+        if store is not None:
+            try:
+                for tmpl in store.get_templates():
+                    fid = tmpl.get("format_id")
+                    if fid and fid not in templates_map:
+                        templates_map[fid] = tmpl
+            except Exception:
+                pass
+
         cand_templates = []
-        for f_id, t_data in sorted(pipeline.fingerprinter.templates.items()):
+        for f_id, t_data in sorted(templates_map.items()):
+            is_approved = t_data.get("approved", True)
+            if t_data.get("status") == "pending_approval":
+                is_approved = False
             cand_templates.append({
                 "path": os.path.join("templates", f"{f_id}.json"),
                 "format_id": f_id,
-                "approved": t_data.get("approved", True),
+                "approved": is_approved,
                 "provider": t_data.get("fields", {}).get("provider") or f_id,
                 "layout_kind": t_data.get("layout_kind", "ruled_table"),
                 "data": t_data
             })
 
+        pending_candidates = [c for c in cand_templates if not c["approved"]]
+        approved_production = [c for c in cand_templates if c["approved"]]
+
         if cand_templates:
-            cand_fmt_ids = [c["format_id"] for c in cand_templates]
-            selected_fmt_id = st.selectbox("Select Template to Review / Sign Off:", cand_fmt_ids)
-            selected_tmpl_info = next((c for c in cand_templates if c["format_id"] == selected_fmt_id), None)
+            if pending_candidates:
+                st.warning(
+                    f"⚠️ **Layout Drift Action Required ({len(pending_candidates)}):** "
+                    f"The Financial Safety Gate intercepted layout changes for known provider(s). "
+                    f"Candidate template(s) require human auditor sign-off before being promoted to active production."
+                )
+            else:
+                st.info(
+                    "ℹ️ **All Templates Validated:** There are currently no pending layout drift templates awaiting auditor sign-off. "
+                    "All active production templates are operating deterministically with 0 LLM calls."
+                )
+
+            # Order so pending candidate templates appear first in the dropdown
+            ordered_templates = pending_candidates + approved_production
+
+            def _get_tmpl_label(c):
+                if not c["approved"]:
+                    return f"⏳ [NEEDS SIGN-OFF] {c['format_id']} (Layout Drift Candidate)"
+                return f"✅ [ACTIVE PRODUCTION] {c['format_id']}"
+
+            tmpl_label_map = {_get_tmpl_label(c): c["format_id"] for c in ordered_templates}
+            selected_label = st.selectbox(
+                "Select Template to Inspect / Sign Off:",
+                options=list(tmpl_label_map.keys()),
+                help="Candidate templates awaiting sign-off are marked with ⏳. Active production templates are marked with ✅."
+            )
+            selected_fmt_id = tmpl_label_map[selected_label]
+            selected_tmpl_info = next((c for c in ordered_templates if c["format_id"] == selected_fmt_id), None)
 
             if selected_tmpl_info:
                 t_col1, t_col2, t_col3 = st.columns(3)
                 t_col1.markdown(f"**Provider:** `{selected_tmpl_info['provider']}`")
                 t_col2.markdown(f"**Layout:** `{selected_tmpl_info['layout_kind']}`")
-                appr_status = "✅ Approved (Active Production)" if selected_tmpl_info["approved"] else "⏳ Pending Auditor Approval"
-                t_col3.markdown(f"**Status:** {appr_status}")
+                if selected_tmpl_info["approved"]:
+                    t_col3.markdown("**Status:** :green[**✅ Active in Production (Validated)**]")
+                else:
+                    t_col3.markdown("**Status:** :orange[**⏳ Pending Auditor Sign-Off (Layout Drift)**]")
+
+                if selected_tmpl_info["approved"]:
+                    st.success(
+                        f"💡 **Production Active:** Template `{selected_fmt_id}` is fully validated and active in production. "
+                        f"Subsequent statements matching this format parse deterministically with 0 LLM calls. "
+                        f"No auditor sign-off or re-approval is required."
+                    )
+                else:
+                    st.warning(
+                        f"⚠️ **Candidate Template (`{selected_fmt_id}`):** This layout was drafted or flagged for layout drift. "
+                        f"Review the schema rules below. Once verified, click **Sign Off & Approve Template** to promote it to active production."
+                    )
 
                 with st.expander(f"View Format Schema Rules: `{selected_fmt_id}.json`"):
                     st.json(selected_tmpl_info["data"])
 
                 col_btn1, col_btn2 = st.columns([2, 2])
-                with col_btn1:
-                    if not selected_tmpl_info["approved"] or selected_fmt_id.endswith("_v2"):
+                if not selected_tmpl_info["approved"]:
+                    # Sign-off button ONLY appears for layout drift / unapproved candidate templates
+                    with col_btn1:
                         btn_label = f"✅ Sign Off & Approve Template `{selected_fmt_id}` (Promote to Production)"
-                    else:
-                        btn_label = f"✅ Re-Approve & Force Sync `{selected_fmt_id}`"
-
-                    if st.button(btn_label, type="primary", key=f"btn_approve_{selected_fmt_id}"):
-                        pipeline.approve_template(selected_fmt_id)
-                        reprocessed = reprocess_review_queue()
-                        pipeline._load_templates()
-                        store.sync_to_pipeline(pipeline)
-                        st.success(f"🎉 Template `{selected_fmt_id}` signed off and promoted to active production! Re-evaluated {len(reprocessed)} quarantined statement(s).")
-                        st.rerun()
-
-                with col_btn2:
-                    if st.button("🔄 Reprocess Review Queue", key="btn_reprocess_queue"):
-                        with st.spinner("Re-evaluating quarantined statements with active templates..."):
+                        if st.button(btn_label, type="primary", key=f"btn_approve_{selected_fmt_id}"):
+                            pipeline.approve_template(selected_fmt_id)
                             reprocessed = reprocess_review_queue()
                             pipeline._load_templates()
                             store.sync_to_pipeline(pipeline)
-                        st.info(f"Re-processed {len(reprocessed)} quarantined statement(s).")
-                        st.rerun()
+                            st.success(f"🎉 Template `{selected_fmt_id}` signed off and promoted to active production! Re-evaluated {len(reprocessed)} quarantined statement(s).")
+                            st.rerun()
+
+                    with col_btn2:
+                        if st.button("🔄 Reprocess Review Queue", key="btn_reprocess_queue"):
+                            with st.spinner("Re-evaluating quarantined statements with active templates..."):
+                                reprocessed = reprocess_review_queue()
+                                pipeline._load_templates()
+                                store.sync_to_pipeline(pipeline)
+                            st.info(f"Re-processed {len(reprocessed)} quarantined statement(s).")
+                            st.rerun()
+                else:
+                    # For approved templates, no Re-Approve button is shown! Only review queue reprocessing is available.
+                    with col_btn1:
+                        if st.button("🔄 Reprocess Review Queue", key="btn_reprocess_queue_active"):
+                            with st.spinner("Re-evaluating quarantined statements with active templates..."):
+                                reprocessed = reprocess_review_queue()
+                                pipeline._load_templates()
+                                store.sync_to_pipeline(pipeline)
+                            st.info(f"Re-processed {len(reprocessed)} quarantined statement(s).")
+                            st.rerun()
 
         else:
-            st.info("No learned templates currently stored in `templates/`. Once statements are ingested, their format templates appear here.")
+            st.info("No learned templates currently stored in the system. Once statements are ingested, their format templates appear here.")
 
         # Interactive Demonstration Expander
         with st.expander("🧪 Test Layout Drift & Human Sign-Off (Interactive Demo)"):
