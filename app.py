@@ -821,32 +821,6 @@ elif view_mode == "⚠️ Quarantined Review Queue":
         else:
             st.info("No learned templates currently stored in the system. Once statements are ingested, their format templates appear here.")
 
-        # Interactive Demonstration Expander
-        with st.expander("🧪 Test Layout Drift & Human Sign-Off (Interactive Demo)"):
-            st.markdown("""
-            **Evaluator Demonstration:**
-            Simulate how the engine catches altered bank layouts in real-time using `sample_data/pms/10_aurum_v2_layout_drift.pdf` (where Aurum modified its column headers from *Avg Cost* to *Cost Basis*):
-            1. Click **🚨 Ingest Drifted Statement** below.
-            2. The Financial Safety Gate intercepts it and quarantines it with `layout_drift_known_provider`.
-            3. A candidate `aurum_pms_monthly_v2` template is registered with `approved: false`.
-            4. Click the sign-off button above to approve and promote it!
-            """)
-            if st.button("🚨 Ingest Drifted Statement (10_aurum_v2_layout_drift.pdf)", key="btn_demo_drift"):
-                with st.spinner("Ingesting and auditing 10_aurum_v2_layout_drift.pdf..."):
-                    import shutil
-                    v2_src = "test_fixtures/templates/aurum_pms_monthly_v2.json"
-                    if not os.path.exists(v2_src):
-                        v2_src = os.path.join("Mr. Tester", "test_fixtures", "templates", "aurum_pms_monthly_v2.json")
-                    if "aurum_pms_monthly_v2" not in pipeline.fingerprinter.templates and os.path.exists(v2_src):
-                        with open(v2_src, "r", encoding="utf-8") as f:
-                            v2_data = json.load(f)
-                        v2_data["approved"] = False
-                        pipeline.persist_template(v2_data)
-
-                    drift_res = pipeline.process_file("sample_data/pms/10_aurum_v2_layout_drift.pdf")
-                    store.save_result(drift_res)
-                st.warning(f"Quarantined by Financial Safety Gate! Status: **{drift_res.status.upper()}** | Issue: `{drift_res.issues}`")
-                st.rerun()
 
         # -------------------------------------------------------------
         # Section: Password Unlocking for Encrypted Statements

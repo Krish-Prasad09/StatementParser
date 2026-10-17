@@ -132,9 +132,9 @@ StatementParser/
 ├── mailer.py            # 📤  SMTP Email Dispatcher for live statements & demo tests
 ├── models.py            # 📐  Data schemas (what a "statement" looks like in code)
 ├── requirements.txt     # 📦  All Python dependencies (including psycopg2)
-├── manifest.csv         # 📋  Sample inventory with expected outputs
 ├── templates/           # 🗂️  Where learned PDF templates are saved (starts empty!)
-├── sample_data/         # 📄  26 sample PDFs + 5 sample emails
+├── sample_data/         # 📄  26 sample PDFs + 5 sample emails + manifest.csv
+├── outputs/             # 📊  Extracted JSON portfolio outputs for sample statements
 └── docs/                # 📖  Design notes and AI-usage documentation
 ```
 
