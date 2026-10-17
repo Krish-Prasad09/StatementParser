@@ -214,8 +214,9 @@ class ProcessingPipeline:
             dup_of = self.ingestion.register_or_check_duplicate(effective_path, rel_name)
             if dup_of:
                 orig_result = self.processed_history.get(dup_of)
-                # If previous processing failed because LLM was temporarily unavailable, allow running LLM again
-                if orig_result and any("learning_failed_llm_unavailable" in str(iss) for iss in (orig_result.issues or [])):
+                # If previous processing of this hash was quarantined in 'needs_review'
+                # or history was cleared for reprocessing, allow re-evaluating cleanly.
+                if (orig_result and orig_result.status == "needs_review") or (orig_result is None and dup_of == rel_name):
                     dup_of = None
                 else:
                     statements = orig_result.statements if orig_result else []

@@ -279,11 +279,34 @@ class FormatLearner:
             pass
 
     def clear_failed_learning(self, format_id: Optional[str] = None):
-        """Clears in-memory failed formats cache to allow retries."""
+        """Clears in-memory and database failed formats cache to allow retries."""
         if format_id:
             self.failed_formats = {item for item in self.failed_formats if item[0] != format_id}
+            if self.store is not None:
+                self.store.remove_failed_learning(format_id)
+            elif self.db_path:
+                try:
+                    from persistence import StatementStore
+                    StatementStore(self.db_path).remove_failed_learning(format_id)
+                except Exception:
+                    pass
         else:
             self.failed_formats.clear()
+            if self.store is not None:
+                if hasattr(self.store, "clear_failed_learnings"):
+                    self.store.clear_failed_learnings()
+                else:
+                    self.store.clear_transient_failed_learnings()
+            elif self.db_path:
+                try:
+                    from persistence import StatementStore
+                    store = StatementStore(self.db_path)
+                    if hasattr(store, "clear_failed_learnings"):
+                        store.clear_failed_learnings()
+                    else:
+                        store.clear_transient_failed_learnings()
+                except Exception:
+                    pass
 
     def _persist_failure(self, format_id: str, provider_key: str = "", layout_kind: str = "", fingerprint_hash: str = "", failure_issue: str = "", diagnostic_message: str = ""):
         # Transient LLM unavailability should not permanently blacklist a layout

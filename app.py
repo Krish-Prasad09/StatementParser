@@ -623,6 +623,8 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                 if st.button("🔄 Reprocess Review Queue (Retry LLM & Passwords)", key="btn_reprocess_queue_top"):
                     with st.spinner("Re-evaluating quarantined statements with active models and templates..."):
                         reprocessed = reprocess_review_queue()
+                        pipeline._load_templates()
+                        store.sync_to_pipeline(pipeline)
                     st.info(f"Re-processed {len(reprocessed)} quarantined statement(s).")
                     st.rerun()
 
@@ -675,6 +677,8 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                     if st.button(btn_label, type="primary", key=f"btn_approve_{selected_fmt_id}"):
                         pipeline.approve_template(selected_fmt_id)
                         reprocessed = reprocess_review_queue()
+                        pipeline._load_templates()
+                        store.sync_to_pipeline(pipeline)
                         st.success(f"🎉 Template `{selected_fmt_id}` signed off and promoted to active production! Re-evaluated {len(reprocessed)} quarantined statement(s).")
                         st.rerun()
 
@@ -682,6 +686,8 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                     if st.button("🔄 Reprocess Review Queue", key="btn_reprocess_queue"):
                         with st.spinner("Re-evaluating quarantined statements with active templates..."):
                             reprocessed = reprocess_review_queue()
+                            pipeline._load_templates()
+                            store.sync_to_pipeline(pipeline)
                         st.info(f"Re-processed {len(reprocessed)} quarantined statement(s).")
                         st.rerun()
 
@@ -782,6 +788,7 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                             # Update existing database record and remove from quarantine
                             store.update_statement_status(selected_locked["db_id"], unlock_res)
                             if unlock_res.status == "validated":
+                                store.supersede_needs_review(selected_locked["file_path"], exclude_id=selected_locked["db_id"])
                                 st.success(f"✅ Correct password! Statement successfully decrypted, audited (VALIDATED), and extracted (LLM calls: {unlock_res.llm_calls_made}).")
                                 if unlock_res.statements:
                                     first_stmt = unlock_res.statements[0].statement

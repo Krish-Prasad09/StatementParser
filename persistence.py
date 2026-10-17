@@ -531,6 +531,10 @@ class MockStatementStore:
                 if not (r.get("format_id") == format_id and (not clean_fhash or r.get("fingerprint_hash") == clean_fhash))
             ]
 
+    def clear_failed_learnings(self):
+        with self._state.lock:
+            self._state.failed_learning_attempts.clear()
+
     def clear_transient_failed_learnings(self):
         with self._state.lock:
             self._state.failed_learning_attempts = [
@@ -546,6 +550,10 @@ class MockStatementStore:
                 if fp and os.path.normpath(fp) == target_norm:
                     if r.get("status") == "needs_review" and (exclude_id is None or r.get("id") != exclude_id):
                         r["status"] = "superseded_by_reprocess"
+            self._state.statements = [
+                r for r in self._state.statements
+                if not (r.get("file_path") and os.path.normpath(r.get("file_path")) == target_norm and r.get("status") == "duplicate" and (exclude_id is None or r.get("id") != exclude_id))
+            ]
 
     def clear(self):
         self._state.clear()
@@ -964,6 +972,7 @@ class StatementStore:
             issues_str = json.dumps(result.issues or [])
             record_str = result.model_dump_json()
             diag_msg = result.diagnostic_message or result.notes or ""
+            eff_hash = result.sha256_hash or ""
             self._execute(cursor, """
                 UPDATE statements
                 SET status = ?,
@@ -971,7 +980,8 @@ class StatementStore:
                     issues_json = ?,
                     llm_calls_made = ?,
                     record_json = ?,
-                    diagnostic_message = ?
+                    diagnostic_message = ?,
+                    sha256_hash = COALESCE(NULLIF(?, ''), sha256_hash)
                 WHERE id = ?
             """, (
                 result.status,
@@ -980,6 +990,7 @@ class StatementStore:
                 result.llm_calls_made,
                 record_str,
                 diag_msg,
+                eff_hash,
                 db_id
             ))
             conn.commit()
@@ -1248,6 +1259,16 @@ class StatementStore:
                 )
             conn.commit()
 
+    def clear_failed_learnings(self):
+        """Clears all failed learning attempts so reprocessing can retry learning with active models/rules."""
+        if self.is_mock:
+            return self._mock.clear_failed_learnings()
+
+        with closing(self._get_connection()) as conn:
+            cursor = conn.cursor()
+            self._execute(cursor, "DELETE FROM failed_learning_attempts")
+            conn.commit()
+
     def clear_transient_failed_learnings(self):
         """Cleans up any transient server-outage failures from the persistence store."""
         if self.is_mock:
@@ -1262,7 +1283,7 @@ class StatementStore:
             conn.commit()
 
     def supersede_needs_review(self, file_path: str, exclude_id: Optional[int] = None):
-        """Marks any prior 'needs_review' records for the given file as superseded."""
+        """Marks any prior 'needs_review' records for the given file as superseded, and removes bogus self-duplicate rows."""
         if self.is_mock:
             return self._mock.supersede_needs_review(file_path=file_path, exclude_id=exclude_id)
 
@@ -1274,10 +1295,20 @@ class StatementStore:
                     "UPDATE statements SET status = 'superseded_by_reprocess' WHERE file_path = ? AND status = 'needs_review' AND id != ?",
                     (file_path, exclude_id)
                 )
+                self._execute(
+                    cursor,
+                    "DELETE FROM statements WHERE file_path = ? AND status = 'duplicate' AND id != ?",
+                    (file_path, exclude_id)
+                )
             else:
                 self._execute(
                     cursor,
                     "UPDATE statements SET status = 'superseded_by_reprocess' WHERE file_path = ? AND status = 'needs_review'",
+                    (file_path,)
+                )
+                self._execute(
+                    cursor,
+                    "DELETE FROM statements WHERE file_path = ? AND status = 'duplicate'",
                     (file_path,)
                 )
             conn.commit()

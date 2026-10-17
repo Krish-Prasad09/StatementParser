@@ -1785,9 +1785,10 @@ def run_all_tests():
     test_durable_failed_learning_persistence()
     test_codex_fixes_suite()
     test_mandatory_currency_and_cross_currency_isolation()
+    test_reprocess_review_queue_in_place_update_and_no_self_duplicate()
 
     print("\n" + "=" * 80)
-    print("ALL 33 UNIT, REGRESSION & MUTATION AUDITS PASSED WITH 100% SUCCESS!")
+    print("ALL 34 UNIT, REGRESSION & MUTATION AUDITS PASSED WITH 100% SUCCESS!")
     print("=" * 80)
 
 
@@ -2006,6 +2007,67 @@ def test_mandatory_currency_and_cross_currency_isolation():
         shutil.rmtree(temp_dir, ignore_errors=True)
 
     print("[PASS] Mandatory currency enforcement and cross-currency isolation verified.")
+
+
+def test_reprocess_review_queue_in_place_update_and_no_self_duplicate():
+    """
+    Verifies that when reprocess_review_queue is invoked on a quarantined statement:
+    1. It does NOT create a new DB ID; it updates the existing DB ID in-place.
+    2. It is NOT marked as duplicate of itself or a failed prior attempt.
+    3. The total record count in statements remains 1, moving from needs_review to validated.
+    """
+    temp_dir = tempfile.mkdtemp()
+    db_path = os.path.join(temp_dir, "test_reprocess.db")
+    store = StatementStore(db_path=db_path)
+    templates_dir = "test_fixtures/templates"
+
+    from models import ExtractionResult
+
+    try:
+        sample_file = "sample_data/pms/01_aurum_A1_standard.pdf"
+        pipe = ProcessingPipeline(templates_dir=templates_dir, db_path=db_path, store=store)
+
+        # 1. Simulate an initial run that failed or was quarantined in needs_review
+        fail_res = ExtractionResult(
+            file=sample_file,
+            format_id="aurum_pms_monthly",
+            status="needs_review",
+            issues=["learning_failed_self_check"],
+            statements=[],
+            llm_calls_made=1,
+            sha256_hash=compute_sha256(sample_file)
+        )
+        init_id = store.save_result(fail_res, sha256_hash=fail_res.sha256_hash)
+        store.save_failed_learning("aurum_pms_monthly", "dummy_hash", "learning_failed_self_check", "self-check failure")
+
+        records_before = store.get_all()
+        assert len(records_before) == 1
+        assert records_before[0]["id"] == init_id
+        assert records_before[0]["status"] == "needs_review"
+
+        # 2. Invoke reprocess_review_queue
+        updated = reprocess_review_queue(db_path=db_path, templates_dir=templates_dir)
+        assert len(updated) == 1
+        assert updated[0]["db_id"] == init_id
+        assert updated[0]["status"] == "validated", f"Expected validated on reprocess, got {updated[0]['status']} ({updated[0]['issues']})"
+
+        # 3. Assert DB record was updated in-place: exactly 1 statement in DB, with the same init_id!
+        records_after = store.get_all()
+        assert len(records_after) == 1, f"Expected exactly 1 DB record, but found {len(records_after)} (new DB ID was erroneously created!)"
+        assert records_after[0]["id"] == init_id, f"Expected DB ID {init_id} to be updated, but found {records_after[0]['id']}"
+        assert records_after[0]["status"] == "validated"
+        assert records_after[0]["issues_json"] == "[]"
+
+        # 4. Verify needs_review queue is now empty
+        assert len(store.get_needs_review()) == 0
+
+        print("[PASS] Reprocess review queue updates existing DB record in-place without creating new IDs or false self-duplicates.")
+    finally:
+        try:
+            store.clear()
+        except Exception:
+            pass
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

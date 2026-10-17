@@ -394,11 +394,15 @@ def reprocess_review_queue(
 ) -> List[Dict[str, Any]]:
     """
     Re-processes statements quarantined in 'needs_review' from PostgreSQL persistence store
-    using candidate password(s) or updated templates.
+    using candidate password(s) or updated templates, updating existing records in-place.
     """
     _load_local_env()
     store = StatementStore(db_path=db_path)
-    store.clear_transient_failed_learnings()
+    if hasattr(store, "clear_failed_learnings"):
+        store.clear_failed_learnings()
+    else:
+        store.clear_transient_failed_learnings()
+
     pipeline = ProcessingPipeline(templates_dir=templates_dir, db_path=db_path, store=store)
     if hasattr(pipeline.learner, "clear_failed_learning"):
         pipeline.learner.clear_failed_learning()
@@ -406,21 +410,48 @@ def reprocess_review_queue(
     print(f"Found {len(review_records)} statement(s) quarantined in needs_review.")
 
     updated = []
+    seen_files = set()
     for rec in review_records:
-        file_path = rec.get("file_path")
-        if not file_path or not os.path.exists(file_path):
+        rec_id = rec.get("id")
+        raw_file_path = rec.get("file_path")
+        if not raw_file_path:
             continue
-        print(f"Re-processing: {file_path} (previous issues: {rec.get('issues_json')})")
+
+        file_path = raw_file_path
+        if not os.path.exists(file_path):
+            restored = store.restore_statement_artifact(raw_file_path)
+            if restored and os.path.exists(restored):
+                file_path = restored
+            else:
+                print(f"[WARN] File not found on disk and could not restore artifact: {raw_file_path}")
+                continue
+
+        norm_key = os.path.normpath(file_path)
+        if norm_key in seen_files:
+            continue
+        seen_files.add(norm_key)
+
+        print(f"Re-processing (DB ID {rec_id}): {file_path} (previous issues: {rec.get('issues_json')})")
+        # Ensure the pipeline doesn't hold stale in-memory state for this file
+        rel_name = file_path.replace("sample_data/", "").replace("sample_data\\", "").replace("\\", "/")
+        pipeline.processed_history.pop(rel_name, None)
+        pipeline.processed_history.pop(raw_file_path, None)
+
         res = pipeline.process_file(file_path, password=password)
-        print(f"  -> New Status: {res.status} | Issues: {res.issues}")
-        file_sha = res.sha256_hash or (compute_sha256(file_path) if os.path.exists(file_path) else "")
-        store.save_result(res, sha256_hash=file_sha)
+        print(f"  -> DB ID {rec_id} New Status: {res.status} | Issues: {res.issues}")
+
+        # Update the existing record in-place instead of creating a new DB ID
+        store.update_statement_status(rec_id, res)
         if res.status == "validated":
-            store.supersede_needs_review(file_path, exclude_id=rec.get("id"))
+            store.supersede_needs_review(raw_file_path, exclude_id=rec_id)
+            if file_path != raw_file_path:
+                store.supersede_needs_review(file_path, exclude_id=rec_id)
+
         updated.append({
-            "file": file_path,
+            "file": raw_file_path,
             "status": res.status,
-            "issues": res.issues
+            "issues": res.issues,
+            "db_id": rec_id
         })
     return updated
 
