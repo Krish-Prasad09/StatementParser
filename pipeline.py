@@ -27,13 +27,16 @@ from utils import compute_sha256
 class ProcessingPipeline:
     """The central pipeline for statement processing."""
 
-    def __init__(self, templates_dir: str = "templates", db_path: Optional[str] = None, store: Optional[Any] = None):
+    def __init__(self, templates_dir: str = "templates", db_path: Optional[str] = None, store: Optional[Any] = None, **kwargs):
         self.templates_dir = templates_dir
         self.db_path = db_path
         self.store = store
-        if self.store is None and self.db_path:
-            from persistence import StatementStore
-            self.store = StatementStore(self.db_path)
+        if self.store is None:
+            try:
+                from persistence import StatementStore
+                self.store = StatementStore(self.db_path)
+            except Exception:
+                self.store = None
         self.ingestion = IngestionEngine()
         self.learner = FormatLearner(templates_dir=templates_dir, db_path=self.db_path, store=self.store)
         self.parser = StatementParser()

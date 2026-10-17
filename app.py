@@ -101,7 +101,13 @@ st.markdown("""
 
 @st.cache_resource
 def get_pipeline():
-    return ProcessingPipeline(templates_dir="templates", store=store)
+    try:
+        return ProcessingPipeline(templates_dir="templates", store=store)
+    except TypeError:
+        pipe = ProcessingPipeline(templates_dir="templates")
+        if hasattr(pipe, "store"):
+            pipe.store = store
+        return pipe
 
 
 
