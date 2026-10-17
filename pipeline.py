@@ -34,7 +34,10 @@ class ProcessingPipeline:
         if self.store is None:
             try:
                 from persistence import StatementStore
-                self.store = StatementStore(self.db_path)
+                store_target = self.db_path
+                if store_target is None and os.getenv("STATEMENT_PARSER_TEST_MODE") == "1" and self.templates_dir != "templates":
+                    store_target = self.templates_dir
+                self.store = StatementStore(store_target)
             except Exception:
                 self.store = None
         self.ingestion = IngestionEngine()

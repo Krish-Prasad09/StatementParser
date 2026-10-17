@@ -116,40 +116,17 @@ def extract_and_redact_document_text(sample_file: str) -> str:
         if ext == ".pdf":
             with pdfplumber.open(sample_file) as pdf:
                 total_pages = len(pdf.pages)
-                if total_pages <= 3:
-                    selected_indices = set(range(total_pages))
-                else:
-                    # 1. Always keep Page 1 (index 0) for Metadata, PAN, and Client credentials
-                    selected_indices = {0}
-                    found_summary = False
-                    found_holdings = False
-                    found_transactions = False
+                # Send starting 4 pages of statement PDFs to LLM (indices 0, 1, 2, 3)
+                selected_indices = set(range(min(4, total_pages)))
 
-                    SUMMARY_KEYS = ["opening corpus", "inflows", "outflows", "net gain", "closing corpus", "opening nav", "closing nav", "worth at start", "closing value", "opening value", "account summary"]
-                    HOLDINGS_KEYS = ["isin", "holding (qty)", "market value", "portfolio company", "cost per unit", "units", "security name", "scrip", "avg cost", "ltp", "cost price", "market price"]
-                    TXN_KEYS = ["trade date", "financial transactions", "transaction type", "ledger entries", "txn", "particulars", "action", "net amount"]
-
-                    # 2. Section-driven semantic scan across pages (<15ms)
-                    for idx, page in enumerate(pdf.pages):
-                        page_text = (page.extract_text() or "").lower()
-                        has_tables = bool(page.extract_tables())
-                        if has_tables:
-                            selected_indices.add(idx)
-
-                        if not found_summary and any(k in page_text for k in SUMMARY_KEYS):
-                            selected_indices.add(idx)
-                            found_summary = True
-
-                        if not found_holdings and any(k in page_text for k in HOLDINGS_KEYS):
-                            selected_indices.add(idx)
-                            found_holdings = True
-
-                        if not found_transactions and any(k in page_text for k in TXN_KEYS):
-                            selected_indices.add(idx)
-                            found_transactions = True
-
-                        if found_summary and found_holdings and found_transactions and (has_tables or len(selected_indices) >= 3):
-                            break
+                # If statement has more than 4 pages, also check if subsequent pages contain tables
+                if total_pages > 4:
+                    for idx in range(4, min(total_pages, 8)):
+                        try:
+                            if pdf.pages[idx].extract_tables():
+                                selected_indices.add(idx)
+                        except Exception:
+                            pass
 
                 for idx in sorted(selected_indices):
                     raw_text += (pdf.pages[idx].extract_text() or "") + "\n"
