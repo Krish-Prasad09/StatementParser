@@ -127,17 +127,23 @@ class FormatFingerprinter:
         elif features["sebi_regn"]:
             features["provider_key"] = re.sub(r"[^a-z0-9]+", "_", features["sebi_regn"].lower()).strip("_")
 
-        # Layout detection via physical line geometry from PDF canvas
+        # Layout detection via physical line geometry from PDF canvas across all pages
         try:
             with pdfplumber.open(file_path) as pdf:
                 if pdf.pages:
-                    p0 = pdf.pages[0]
-                    h_lines = [l for l in p0.lines if abs(l["top"] - l["bottom"]) < 2 and abs(l["x1"] - l["x0"]) > 80]
-                    v_lines = [l for l in p0.lines if abs(l["x1"] - l["x0"]) < 2 and abs(l["top"] - l["bottom"]) > 15]
+                    max_v = 0
+                    max_h = 0
+                    for p in pdf.pages:
+                        h_lines = [l for l in p.lines if abs(l["top"] - l["bottom"]) < 2 and abs(l["x1"] - l["x0"]) > 80]
+                        v_lines = [l for l in p.lines if abs(l["x1"] - l["x0"]) < 2 and abs(l["top"] - l["bottom"]) > 15]
+                        if len(v_lines) > max_v:
+                            max_v = len(v_lines)
+                        if len(h_lines) > max_h:
+                            max_h = len(h_lines)
 
-                    if len(v_lines) == 0 and len(h_lines) == 0:
+                    if max_v == 0 and max_h == 0:
                         features["layout_kind"] = "monospace_text"
-                    elif len(v_lines) == 0 and len(h_lines) > 0:
+                    elif max_v == 0 and max_h > 0:
                         features["layout_kind"] = "ruled_lines_horizontal_only"
                     else:
                         features["layout_kind"] = "ruled_table"
@@ -157,12 +163,15 @@ class FormatFingerprinter:
                         found_hold = False
                         found_txn = False
 
-                        SUMMARY_KEYS = ["opening", "inflow", "gain", "corpus", "worth at start", "closing", "opening nav", "closing nav"]
-                        HOLDINGS_KEYS = ["security", "isin", "qty", "units", "scrip", "avg cost", "market price", "rate", "worth", "holding"]
+                        SUMMARY_KEYS = ["opening", "inflow", "gain", "corpus", "worth at start", "closing", "opening nav", "closing nav", "account summary"]
+                        HOLDINGS_KEYS = ["security", "isin", "qty", "units", "scrip", "avg cost", "market price", "rate", "worth", "holding", "cost price"]
                         TXN_KEYS = ["trade date", "date", "action", "type", "particulars", "net amount", "trade", "transaction"]
 
                         for idx, page in enumerate(pdf.pages):
                             page_text = (page.extract_text() or "").lower()
+                            has_tbl = bool(page.extract_tables())
+                            if has_tbl:
+                                target_indices.add(idx)
                             if not found_sum and any(k in page_text for k in SUMMARY_KEYS):
                                 target_indices.add(idx)
                                 found_sum = True
@@ -172,7 +181,7 @@ class FormatFingerprinter:
                             if not found_txn and any(k in page_text for k in TXN_KEYS):
                                 target_indices.add(idx)
                                 found_txn = True
-                            if found_sum and found_hold and found_txn:
+                            if found_sum and found_hold and found_txn and has_tbl:
                                 break
 
                     for idx in sorted(target_indices):

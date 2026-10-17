@@ -367,7 +367,7 @@ class StatementParser:
                 pages_by_statement.append(current_statement_pages)
 
             for stmt_pages in pages_by_statement:
-                first_page = stmt_pages[0]
+                first_page = next((p for p in stmt_pages if re.search(r"(?:CLIENT ID|Client ID|FOLIO|PAN|INP\d+)", p.extract_text() or "", re.IGNORECASE)), stmt_pages[0])
                 full_text = "\n".join(p.extract_text() or "" for p in stmt_pages)
 
                 w = first_page.width

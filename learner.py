@@ -125,13 +125,16 @@ def extract_and_redact_document_text(sample_file: str) -> str:
                     found_holdings = False
                     found_transactions = False
 
-                    SUMMARY_KEYS = ["opening corpus", "inflows", "outflows", "net gain", "closing corpus", "opening nav", "closing nav", "worth at start", "closing value"]
-                    HOLDINGS_KEYS = ["isin", "holding (qty)", "market value", "portfolio company", "cost per unit", "units", "security name", "scrip", "avg cost", "ltp"]
+                    SUMMARY_KEYS = ["opening corpus", "inflows", "outflows", "net gain", "closing corpus", "opening nav", "closing nav", "worth at start", "closing value", "opening value", "account summary"]
+                    HOLDINGS_KEYS = ["isin", "holding (qty)", "market value", "portfolio company", "cost per unit", "units", "security name", "scrip", "avg cost", "ltp", "cost price", "market price"]
                     TXN_KEYS = ["trade date", "financial transactions", "transaction type", "ledger entries", "txn", "particulars", "action", "net amount"]
 
                     # 2. Section-driven semantic scan across pages (<15ms)
                     for idx, page in enumerate(pdf.pages):
                         page_text = (page.extract_text() or "").lower()
+                        has_tables = bool(page.extract_tables())
+                        if has_tables:
+                            selected_indices.add(idx)
 
                         if not found_summary and any(k in page_text for k in SUMMARY_KEYS):
                             selected_indices.add(idx)
@@ -145,7 +148,7 @@ def extract_and_redact_document_text(sample_file: str) -> str:
                             selected_indices.add(idx)
                             found_transactions = True
 
-                        if found_summary and found_holdings and found_transactions:
+                        if found_summary and found_holdings and found_transactions and (has_tables or len(selected_indices) >= 3):
                             break
 
                 for idx in sorted(selected_indices):
