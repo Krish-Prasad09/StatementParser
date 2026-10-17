@@ -223,7 +223,7 @@ def test_three_way_classifier():
 
 
 def test_password_protected_pdf_handling():
-    """Encrypted PDF must diagnose password_required, decrypt cleanly with STATEMENT_PASSWORDS, and clean up temp files."""
+    """Encrypted PDF must diagnose password_required, decrypt cleanly with direct candidate password, and clean up temp files."""
     pipe = ProcessingPipeline(templates_dir="test_fixtures/templates")
     sample_src = "sample_data/pms/02_aurum_A2_sell_and_outflow.pdf"
     assert os.path.exists(sample_src)
@@ -249,21 +249,16 @@ def test_password_protected_pdf_handling():
         assert res_wrong_pwd.status == "needs_review"
         assert "password_required" in res_wrong_pwd.issues
 
-        # 3. STATEMENT_PASSWORDS env var with wrong,right -> equals unencrypted result
-        old_env = os.environ.get("STATEMENT_PASSWORDS", "")
-        os.environ["STATEMENT_PASSWORDS"] = f"wrong_pwd,{test_pwd}"
-        try:
-            pipe_env = ProcessingPipeline(templates_dir="test_fixtures/templates")
-            res_env = pipe_env.process_file(enc_pdf_path)
-            res_unenc = ProcessingPipeline(templates_dir="test_fixtures/templates").process_file(sample_src)
-            assert res_env.status == "validated", f"Failed env var test: {res_env.issues}"
-            assert res_env.statements == res_unenc.statements, "Decrypted statements must match unencrypted PDF!"
-            res_dup = pipe_env.process_file(enc_pdf_path)
-            assert res_dup.status == "duplicate", "Second run on encrypted PDF must be detected as duplicate!"
-        finally:
-            os.environ["STATEMENT_PASSWORDS"] = old_env
+        # 3. Direct candidate password (as entered in dashboard UI) -> equals unencrypted result
+        pipe_direct = ProcessingPipeline(templates_dir="test_fixtures/templates")
+        res_direct = pipe_direct.process_file(enc_pdf_path, password=test_pwd)
+        res_unenc = ProcessingPipeline(templates_dir="test_fixtures/templates").process_file(sample_src)
+        assert res_direct.status == "validated", f"Failed direct password test: {res_direct.issues}"
+        assert res_direct.statements == res_unenc.statements, "Decrypted statements must match unencrypted PDF!"
+        res_dup = pipe_direct.process_file(enc_pdf_path, password=test_pwd)
+        assert res_dup.status == "duplicate", "Second run on encrypted PDF must be detected as duplicate!"
 
-        print("[PASS] Password decryption works for direct password and STATEMENT_PASSWORDS, and hashes decrypted content.")
+        print("[PASS] Password decryption works for direct password, and hashes decrypted content.")
     finally:
         if os.path.exists(enc_pdf_path):
             os.remove(enc_pdf_path)

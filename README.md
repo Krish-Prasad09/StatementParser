@@ -198,7 +198,6 @@ Dashboard shows results
 | `IMAP_USER` / `IMAP_PASSWORD` | Your email login credentials |
 | `IMAP_FOLDER` | Which inbox folder to watch (default: `INBOX`) |
 | `DATABASE_URL` | PostgreSQL connection URL (e.g. Neon.tech, Supabase, AWS RDS) |
-| `STATEMENT_PASSWORDS` | *(Optional)* Comma-separated candidate passwords for encrypted PDFs |
 
 ---
 

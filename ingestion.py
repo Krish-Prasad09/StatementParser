@@ -79,28 +79,19 @@ class IngestionEngine:
         try:
             reader = pypdf.PdfReader(file_path)
             if reader.is_encrypted:
-                passwords_to_try = []
-                if candidate_password:
-                    passwords_to_try.append(candidate_password.strip())
-                env_pwds = os.environ.get("STATEMENT_PASSWORDS", "").split(",")
-                for pwd in env_pwds:
-                    if pwd.strip() and pwd.strip() not in passwords_to_try:
-                        passwords_to_try.append(pwd.strip())
-
-                if not passwords_to_try:
+                if not candidate_password or not candidate_password.strip():
                     return True, False, "", file_path, "password_required"
 
+                pwd = candidate_password.strip()
                 decrypted = False
-                for pwd in passwords_to_try:
-                    try:
-                        res = reader.decrypt(pwd)
-                        if res != 0:
-                            decrypted = True
-                            break
-                    except Exception as dec_err:
-                        err_str = str(dec_err).lower()
-                        if any(k in err_str for k in ["cryptography", "crypto", "dependency", "aes"]):
-                            return True, False, "", file_path, "pdf_crypto_dependency_missing"
+                try:
+                    res = reader.decrypt(pwd)
+                    if res != 0:
+                        decrypted = True
+                except Exception as dec_err:
+                    err_str = str(dec_err).lower()
+                    if any(k in err_str for k in ["cryptography", "crypto", "dependency", "aes"]):
+                        return True, False, "", file_path, "pdf_crypto_dependency_missing"
 
                 if not decrypted:
                     return True, False, "", file_path, "password_required"
