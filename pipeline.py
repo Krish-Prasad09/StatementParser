@@ -259,6 +259,34 @@ class ProcessingPipeline:
                         template_dict = learned_tmpl
                         matched_format_id = v2_format_id
                         self._load_templates()
+                    elif template_dict:
+                        import copy
+                        v2_cand = copy.deepcopy(template_dict)
+                        v2_cand["format_id"] = v2_format_id
+                        v2_cand["version"] = int(template_dict.get("version", 1)) + 1
+                        v2_cand["approved"] = False
+                        v2_cand["status"] = "pending_approval"
+                        fp = v2_cand.setdefault("fingerprint", {})
+                        if features.get("table_headers"):
+                            fp["table_headers"] = list(features["table_headers"])
+                        doc_cols = []
+                        for h_line in features.get("table_headers", []):
+                            for col in h_line.split("|"):
+                                if col.strip():
+                                    doc_cols.append(col.strip())
+                        h_map = v2_cand.get("holdings", {}).get("mapping", {})
+                        if h_map and doc_cols:
+                            from fingerprinter import _col_matches_label
+                            missing_keys = [
+                                k for k, exp_hdr in h_map.items()
+                                if not any(_col_matches_label(dc, exp_hdr) for dc in doc_cols)
+                            ]
+                            for mk in missing_keys:
+                                del h_map[mk]
+                        self.persist_template(v2_cand)
+                        self._load_templates()
+                        template_dict = v2_cand
+                        matched_format_id = v2_format_id
             elif not template_dict:
                 target_id = matched_format_id or features.get("provider_key")
                 template_dict, calls = self.learner.learn_format(target_id, effective_path, features)

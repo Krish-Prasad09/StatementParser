@@ -114,10 +114,17 @@ class FinancialValidator:
                         issues.append("provider_mismatch_template")
 
             # Check A1: Missing mapped columns detected during table extraction
+            tmpl_expected = []
+            if template:
+                tmpl_expected = [str(c).lower().strip() for c in template.get("holdings", {}).get("mapping", {}).values()]
+                tmpl_expected += [str(c).lower().strip() for c in template.get("summary", {}).get("mapping", {}).values()]
+
             missing_cols = getattr(summary, "missing_columns", None) or []
             for mc in missing_cols:
-                if mc not in issues:
-                    issues.append(mc)
+                col_name = mc.split(":", 1)[1].strip().lower() if ":" in mc else mc.lower().strip()
+                if not tmpl_expected or col_name in tmpl_expected:
+                    if mc not in issues:
+                        issues.append(mc)
 
             # Check A: Required metadata (Fail closed)
             tmpl_fields = template.get("fields", {}) if template else {}

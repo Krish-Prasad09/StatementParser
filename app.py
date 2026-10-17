@@ -657,6 +657,37 @@ elif view_mode == "⚠️ Quarantined Review Queue":
             except Exception:
                 pass
 
+            # Detect any quarantined statement with layout_drift_known_provider and ensure candidate v2 template exists
+            try:
+                for r_item in db_review:
+                    r_issues = json.loads(r_item.get("issues_json", "[]"))
+                    if any("layout_drift_known_provider" in str(iss) for iss in r_issues):
+                        base_fmt = r_item.get("format_id")
+                        if base_fmt and base_fmt != "none":
+                            v2_id = base_fmt if base_fmt.endswith("_v2") else f"{base_fmt}_v2"
+                            if v2_id not in templates_map:
+                                base_tmpl = templates_map.get(base_fmt) or store.get_template(base_fmt)
+                                if base_tmpl:
+                                    import copy
+                                    v2_cand = copy.deepcopy(base_tmpl)
+                                    v2_cand["format_id"] = v2_id
+                                    v2_cand["version"] = int(base_tmpl.get("version", 1)) + 1
+                                    v2_cand["approved"] = False
+                                    v2_cand["status"] = "pending_approval"
+                                    
+                                    # Adapt mapping: remove missing mapped columns
+                                    missing_col_issues = [iss for iss in r_issues if str(iss).startswith("expected_column_missing:")]
+                                    missing_col_names = [iss.split(":", 1)[1].strip().lower() for iss in missing_col_issues]
+                                    h_map = v2_cand.get("holdings", {}).get("mapping", {})
+                                    keys_to_del = [k for k, v in h_map.items() if str(v).lower() in missing_col_names]
+                                    for k in keys_to_del:
+                                        del h_map[k]
+                                        
+                                    pipeline.persist_template(v2_cand)
+                                    templates_map[v2_id] = v2_cand
+            except Exception:
+                pass
+
         cand_templates = []
         for f_id, t_data in sorted(templates_map.items()):
             is_approved = t_data.get("approved", True)

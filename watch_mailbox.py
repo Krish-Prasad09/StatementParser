@@ -438,6 +438,27 @@ def reprocess_review_queue(
         pipeline.processed_history.pop(raw_file_path, None)
 
         res = pipeline.process_file(file_path, password=password)
+
+        # If reprocessing on disk encountered review status, but we already have extracted records
+        # in the persisted statement, check if they now cleanly validate against an active promoted template:
+        if res.status == "needs_review" and rec.get("record_json"):
+            try:
+                from models import ExtractionResult
+                prev_res = ExtractionResult.model_validate_json(rec["record_json"])
+                if prev_res.statements:
+                    base_fmt = prev_res.format_id or rec.get("format_id", "")
+                    v2_fmt = base_fmt if base_fmt.endswith("_v2") else f"{base_fmt}_v2"
+                    active_tmpl = pipeline.fingerprinter.templates.get(v2_fmt) or pipeline.fingerprinter.templates.get(base_fmt)
+                    if active_tmpl and active_tmpl.get("approved"):
+                        v_status, v_issues = pipeline.validator.validate(file_path, prev_res.statements, is_drift=False, template=active_tmpl)
+                        if v_status == "validated" and not v_issues:
+                            prev_res.status = "validated"
+                            prev_res.issues = []
+                            prev_res.format_id = active_tmpl.get("format_id", v2_fmt)
+                            res = prev_res
+            except Exception:
+                pass
+
         print(f"  -> DB ID {rec_id} New Status: {res.status} | Issues: {res.issues}")
 
         # Update the existing record in-place instead of creating a new DB ID
