@@ -74,25 +74,43 @@ class ProcessingPipeline:
             raise ValueError("A format template must include format_id")
         if self.store is not None:
             self.store.save_template(template)
-        path = os.path.join(self.templates_dir, f"{format_id}.json")
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(template, f, indent=2)
+        try:
+            os.makedirs(self.templates_dir, exist_ok=True)
+            path = os.path.join(self.templates_dir, f"{format_id}.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(template, f, indent=2)
+        except Exception:
+            pass
         self._load_templates()
 
     def approve_template(self, format_id: str) -> bool:
         """Approves/promotes a template so subsequent statements of that format parse cleanly with 0 LLM calls."""
-        data = self.learner.load_template(format_id)
+        data = None
+        if self.store is not None:
+            try:
+                data = self.store.get_template(format_id)
+            except Exception:
+                data = None
+        if not data:
+            data = self.learner.load_template(format_id)
         if not data:
             data = self.fingerprinter.templates.get(format_id)
         if not data:
             return False
         data["approved"] = True
-        if "status" in data:
-            data["status"] = "active"
+        data["status"] = "active"
+        if self.store is not None:
+            try:
+                self.store.save_template(data)
+            except Exception:
+                pass
         try:
             self.persist_template(data)
         except Exception:
-            return False
+            pass
+        if format_id in self.fingerprinter.templates:
+            self.fingerprinter.templates[format_id]["approved"] = True
+            self.fingerprinter.templates[format_id]["status"] = "active"
         self._load_templates()
         return format_id in self.fingerprinter.templates
 

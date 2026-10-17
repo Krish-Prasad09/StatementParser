@@ -647,16 +647,25 @@ elif view_mode == "⚠️ Quarantined Review Queue":
         )
 
         # Discover candidate and active templates from durable storage and the local cache.
-        templates_map = dict(pipeline.fingerprinter.templates)
+        try:
+            pipeline._load_templates()
+        except Exception:
+            pass
+
+        templates_map = {}
         if store is not None:
             try:
                 for tmpl in store.get_templates():
                     fid = tmpl.get("format_id")
-                    if fid and fid not in templates_map:
+                    if fid:
                         templates_map[fid] = tmpl
             except Exception:
                 pass
+        for fid, tmpl in pipeline.fingerprinter.templates.items():
+            if fid not in templates_map:
+                templates_map[fid] = tmpl
 
+        if store is not None:
             # Detect any quarantined statement with layout_drift_known_provider and ensure candidate v2 template exists
             try:
                 for r_item in db_review:
@@ -726,10 +735,20 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                     return f"⏳ [NEEDS SIGN-OFF] {c['format_id']} (Layout Drift Candidate)"
                 return f"✅ [ACTIVE PRODUCTION] {c['format_id']}"
 
+            # If a template was just approved, prioritize selecting it in the dropdown
+            default_idx = 0
+            just_approved = st.session_state.pop("just_approved_template", None)
+            if just_approved:
+                for idx, c in enumerate(ordered_templates):
+                    if c["format_id"] == just_approved:
+                        default_idx = idx
+                        break
+
             tmpl_label_map = {_get_tmpl_label(c): c["format_id"] for c in ordered_templates}
             selected_label = st.selectbox(
                 "Select Template to Inspect / Sign Off:",
                 options=list(tmpl_label_map.keys()),
+                index=default_idx,
                 help="Candidate templates awaiting sign-off are marked with ⏳. Active production templates are marked with ✅."
             )
             selected_fmt_id = tmpl_label_map[selected_label]
@@ -766,9 +785,17 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                         btn_label = f"✅ Sign Off & Approve Template `{selected_fmt_id}` (Promote to Production)"
                         if st.button(btn_label, type="primary", key=f"btn_approve_{selected_fmt_id}"):
                             pipeline.approve_template(selected_fmt_id)
+                            if store is not None:
+                                tmpl = store.get_template(selected_fmt_id)
+                                if tmpl:
+                                    tmpl["approved"] = True
+                                    tmpl["status"] = "active"
+                                    store.save_template(tmpl)
                             reprocessed = reprocess_review_queue()
                             pipeline._load_templates()
-                            store.sync_to_pipeline(pipeline)
+                            if store is not None:
+                                store.sync_to_pipeline(pipeline)
+                            st.session_state["just_approved_template"] = selected_fmt_id
                             st.success(f"🎉 Template `{selected_fmt_id}` signed off and promoted to active production! Re-evaluated {len(reprocessed)} quarantined statement(s).")
                             st.rerun()
 
