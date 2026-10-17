@@ -1,27 +1,16 @@
 """
-send_test_email.py
-------------------
-Utility to send test financial statement emails to the configured Gmail inbox via SMTP SSL.
-Enables a complete end-to-end demo loop:
-1. python send_test_email.py --file sample_data/pms/01_aurum_A1_standard.pdf
-2. python watch_mailbox.py --once
+mailer.py
+---------
+Production SMTP Email Dispatcher for financial statement delivery and live demo testing.
+Connects securely via SSL/STARTTLS to dispatch statements with attachments.
 """
 
 import os
 import sys
 import smtplib
 import random
-import argparse
 from email.message import EmailMessage
 from typing import Optional, Dict, Any
-
-# Ensure stdout handles utf-8
-if hasattr(sys.stdout, "reconfigure"):
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
-
 
 DEFAULT_STATEMENT_SUBJECTS = [
     "Your PMS Portfolio Statement for September 2026",
@@ -61,7 +50,7 @@ def send_statement_email(
 ) -> Dict[str, Any]:
     """
     Sends an email with an optional attachment to the configured test mailbox.
-    Uses credentials from .env (IMAP_USER and IMAP_PASSWORD / App Password).
+    Uses credentials from environment or local .env (IMAP_USER and IMAP_PASSWORD).
     """
     load_env()
 
@@ -168,50 +157,3 @@ def send_statement_email(
         "subject": subject,
         "attachment": attached_filename
     }
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Send test financial statement emails to the configured mailbox.")
-    parser.add_argument("--file", "-f", help="Path to statement file to attach (PDF, Excel, CSV)")
-    parser.add_argument("--subject", "-s", help="Custom email subject line (random realistic subject if omitted)")
-    parser.add_argument("--body", "-b", help="Custom email body text")
-    parser.add_argument("--to", help="Recipient email address (defaults to IMAP_USER from .env)")
-    parser.add_argument("--random-sample", action="store_true", help="Pick a random sample statement from sample_data/pms")
-
-    args = parser.parse_args()
-
-    file_to_send = args.file
-    if args.random_sample and not file_to_send:
-        samples = [
-            "sample_data/pms/01_aurum_A1_standard.pdf",
-            "sample_data/pms/04_banyan_B1_quarterly_2pages.pdf",
-            "sample_data/pms/08_delta_D1_ledger.pdf",
-            "sample_data/aif/12_evergreen_E1_cat2.pdf",
-            "sample_data/excel_csv/16_hestia_statement.xlsx"
-        ]
-        file_to_send = random.choice([s for s in samples if os.path.exists(s)])
-
-    print(f"Preparing to send test email...")
-    if file_to_send:
-        print(f"  Attachment: {file_to_send}")
-
-    res = send_statement_email(
-        file_path=file_to_send,
-        subject=args.subject,
-        body=args.body,
-        to_email=args.to
-    )
-
-    if res.get("status") == "success":
-        print("\n✅ Email sent successfully!")
-        print(f"  To:         {res['recipient']}")
-        print(f"  Subject:    {res['subject']}")
-        print(f"  Attachment: {res.get('attachment') or 'None'}")
-        print("\nNext step: Run 'python watch_mailbox.py --once' to poll and ingest this statement.")
-    else:
-        print(f"\n❌ Failed to send email: {res.get('error')}", file=sys.stderr)
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

@@ -107,11 +107,11 @@ streamlit run app.py
 ```
 Open [http://localhost:8501](http://localhost:8501) in your browser. That's it!
 
-### 5️⃣ Run the test suite
+### 5️⃣ Run the test suite (Local Harness)
 ```bash
-python tests/test_runner.py
+python "Mr. Tester/run_tests.py"
 ```
-Should print `31/31 PASS` ✅
+Should print `ALL TESTS (BENCHMARK 31/31 + EDGE CASES 34/34) PASSED WITH 100% SUCCESS!` ✅
 
 ---
 
@@ -129,14 +129,12 @@ StatementParser/
 ├── consolidator.py      # 🏦  Merges multi-custodian holdings by ISIN
 ├── persistence.py       # 💾  Enterprise PostgreSQL store (Neon Cloud / Supabase / RDS)
 ├── watch_mailbox.py     # 📬  IMAP poller — watches inbox for new statement emails
+├── mailer.py            # 📤  SMTP Email Dispatcher for live statements & demo tests
 ├── models.py            # 📐  Data schemas (what a "statement" looks like in code)
-├── send_test_email.py   # 📤  Utility to send a test statement email
 ├── requirements.txt     # 📦  All Python dependencies (including psycopg2)
-├── manifest.csv         # 📋  Test inventory with expected outputs
+├── manifest.csv         # 📋  Sample inventory with expected outputs
 ├── templates/           # 🗂️  Where learned PDF templates are saved (starts empty!)
-├── test_fixtures/       # 🧪  Pre-built templates used only for tests
 ├── sample_data/         # 📄  26 sample PDFs + 5 sample emails
-├── tests/               # ✅  Automated test suites
 └── docs/                # 📖  Design notes and AI-usage documentation
 ```
 

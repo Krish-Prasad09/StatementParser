@@ -39,7 +39,7 @@ except Exception:
 
 # Load local .env file as fallback if present
 try:
-    from send_test_email import load_env
+    from mailer import load_env
     load_env()
 except Exception:
     pass
@@ -835,6 +835,8 @@ elif view_mode == "⚠️ Quarantined Review Queue":
                 with st.spinner("Ingesting and auditing 10_aurum_v2_layout_drift.pdf..."):
                     import shutil
                     v2_src = "test_fixtures/templates/aurum_pms_monthly_v2.json"
+                    if not os.path.exists(v2_src):
+                        v2_src = os.path.join("Mr. Tester", "test_fixtures", "templates", "aurum_pms_monthly_v2.json")
                     if "aurum_pms_monthly_v2" not in pipeline.fingerprinter.templates and os.path.exists(v2_src):
                         with open(v2_src, "r", encoding="utf-8") as f:
                             v2_data = json.load(f)
@@ -975,7 +977,7 @@ elif view_mode == "📤 Live Email Dispatch & Ingest":
                 target_file_path = tmp.name
                 target_file_name = uploaded_file.name
 
-            from send_test_email import send_statement_email
+            from mailer import send_statement_email
             with st.spinner("Connecting to SMTP server (smtp.gmail.com) and dispatching email..."):
                 mail_res = send_statement_email(
                     file_path=target_file_path,

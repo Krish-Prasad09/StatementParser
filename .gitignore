@@ -23,3 +23,7 @@ templates/*.json
 venv/
 .idea/
 .vscode/
+
+# Testing harness and audit fixtures (isolated from production distribution)
+Mr. Tester/
+
