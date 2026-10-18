@@ -2,7 +2,7 @@
 
 > **🚀 Live Demo → [stparser.streamlit.app](https://stparser.streamlit.app/)**
 
-> ⚠️ **Heads up:** I made this link public so interviewers can see the full project working — zero setup needed. That said, I know this isn't safe for a real app because the dashboard has a live "Send Email" tab hooked up to a dummy Gmail account. Don't do this for production. 😅
+> ⚠️ **Heads up:** I made this link public so interviewers can see the full project working — zero setup needed. I know this isn't safe for a real app because the dashboard has a live "Send Email" tab hooked up to a dummy Gmail account. 😅
 
 ---
 
@@ -33,9 +33,8 @@ This project:
 | 📐 **Layout Drift Detection** | If a bank renames a column, it quarantines the file instead of guessing wrong |
 | 🔐 **Password-Protected PDFs** | Locks encrypted PDFs in quarantine; enter the password in the dashboard to unlock |
 | 🏦 **Multi-Custodian Consolidation** | Merges holdings from all your wealth managers by ISIN into one portfolio view |
-| ☁️ **Cloud Database Persistence** | PostgreSQL (Neon.tech / Supabase / RDS) for robust, permanent cloud storage |
+| ☁️ **Cloud Database Persistence** | PostgreSQL (Neon.tech) for robust, permanent cloud storage |
 | 📊 **Interactive Dashboard** | Streamlit UI with 4 views: Mailbox Ops, Portfolio View, Quarantine Queue, Send Test Email |
-| 🧪 **31 Automated Tests** | 1,046 ground-truth fields verified — zero false passes allowed |
 
 ---
 
@@ -52,7 +51,7 @@ To solve this in an enterprise-ready way:
 
 👉 **[https://stparser.streamlit.app/](https://stparser.streamlit.app/)**
 
-The live app has 26 sample PDF statements and 5 sample emails pre-loaded. You can:
+You can:
 - Upload any statement file and dispatch it via real SMTP to the test inbox
 - Watch it get polled via IMAP, parsed, audited, and added to the portfolio
 - Browse the quarantine queue and unlock password-protected statements
@@ -145,13 +144,12 @@ StatementParser/
 ## 🧪 Benchmark Results
 
 ```
-✅ 31/31 tests passed (100.0%)
-📊 1,046 ground-truth fields reconciled
+✅ 31/31 different files passed (100.0%)
 🏦 9 different statement formats covered
 🔒 Encrypted PDFs, tampered numbers, broken rollforwards — all correctly quarantined
 ```
 
-Formats tested:
+Formats tested(providers:Aurum, Banyan, Cedar, Delta, Evergreen, Fulcrum etc.):
 - Aurum Capital PMS (2 layout versions)
 - Banyan Tree Advisors PMS
 - Cedar Capital PMS
@@ -217,4 +215,4 @@ Built for the **Activv Money Internship Assignment** (Newcamp Finserv).
 
 ---
 
-*Made with ☕ and way too many PDF edge cases*
+*Thank you*
