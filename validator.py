@@ -351,6 +351,7 @@ class FinancialValidator:
                         issues.append("units_times_nav_per_unit_mismatch")
 
             # Check O: Long-only template cannot have negative holding quantities
+            # In long-only PMS/mutual funds, owning negative shares is impossible (only AIF Cat III hedge funds allow shorting)
             if not supports_short:
                 for h in holdings:
                     if h.quantity < 0:
@@ -358,17 +359,21 @@ class FinancialValidator:
                             issues.append("negative_quantity_in_long_only_template")
 
             # Check P: Period range validity (period_start <= period_end)
+            # Ensures start date does not come after the end date chronologically
             if meta.period_start and meta.period_end:
                 if meta.period_start > meta.period_end:
                     if "invalid_period_range" not in issues:
                         issues.append("invalid_period_range")
 
             # Check Q: Collect any non-blocking soft issues from summary
+            # Soft issues provide telemetry for template improvement without failing the statement
             soft_list = getattr(summary, "soft_issues", []) or []
             for si in soft_list:
                 if si not in issues:
                     issues.append(si)
 
+        # Separate critical blocking failures from non-blocking informational soft warnings
         blocking_issues = [i for i in issues if i not in self.SOFT_ISSUES]
+        # If any blocking issue was detected, quarantine record to 'needs_review'; otherwise approve as 'validated'
         status = "needs_review" if blocking_issues else "validated"
         return status, issues

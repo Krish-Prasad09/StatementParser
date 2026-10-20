@@ -141,38 +141,51 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
 
     # Client ID
     client_id = ""
+    # Built-in fallback regex matching standard Indian PMS folio and account labels
     default_cid_pat = r"(?:CLIENT ID|Client ID|FOLIO\s*/\s*CLIENT CODE|ACCOUNT NO|INVESTOR CODE|UNITHOLDER ID|CLIENT CODE)[ \t]*[:\s][ \t]*([A-Za-z0-9\/\-]+)"
+    # Select template-specific regex if defined by the AI learner; otherwise use default pattern
     client_id_pat = fields.get("client_id_pattern") or default_cid_pat
+    # re.search scans search_text for the first location where client_id_pat produces a match
     m = re.search(client_id_pat, search_text, re.IGNORECASE)
+    # If the learned pattern fails to match, retry using the default built-in regex pattern
     if not m and client_id_pat != default_cid_pat:
         m = re.search(default_cid_pat, search_text, re.IGNORECASE)
     if m:
+        # m.group(1) extracts the string captured inside the first parentheses (...) of the regex
         client_id = m.group(1).strip()
 # For example, from CLIENT ID: ABC123, it stores ABC123 in client_id.
 
     # Client Name
     client_name = ""
+    # Standard regex matching 'Client Name', 'Investor Name', 'Account Name' followed by text up to line break
     default_cname_pat = r"(?:Client Name|Investor Name|Account Name|Account Holder|Investor(?!\s+Code)|Name)[ \t]*[:\s]?[ \t]+([^\r\n|]+)"
+    # Select template pattern if available, or fall back to default
     client_name_pat = fields.get("client_name_pattern") or default_cname_pat
     m = re.search(client_name_pat, search_text, re.IGNORECASE)
+    # If the learned pattern fails to match, retry using the default built-in regex pattern
     if not m and client_name_pat != default_cname_pat:
         m = re.search(default_cname_pat, search_text, re.IGNORECASE)
     if m:
         cname = m.group(1).strip()
+        # re.split cuts the string at adjacent column labels; [0] keeps only the left side (the name)
         cname = re.split(r"(?:Strategy|PMS Approach|Portfolio|PAN|Scheme|Series|Status|Address|Mandate|Tax ID|Plan|Class|Commitment)", cname, flags=re.IGNORECASE)[0].strip()
 # Rahul Sharma PAN ABCDE1234F stripped to Rahul Sharma
        
+        # Remove any leftover label prefixes (e.g. 'Client Name:') from the beginning of the string
         cname = re.sub(r"^(?:Account Holder|Investor Name|Client Name|Investor|Name)[ \t]*[:\s]?", "", cname, flags=re.IGNORECASE).strip()
         client_name = cname
 
-    # PAN
+    # PAN (Permanent Account Number - 10 character Indian tax identifier)
     pan = None
+    # Standard format: 5 uppercase letters, 4 digits, 1 uppercase letter (e.g. ABCDE1234F)
     default_pan_pat = r"(?:PAN|Tax ID)[ \t]*[:\s]?[ \t]*([A-Z]{5}[0-9]{4}[A-Z])"
     pan_pat = fields.get("pan_pattern") or default_pan_pat
     m = re.search(pan_pat, search_text, re.IGNORECASE)
+    # Retry with default if template pattern fails
     if not m and pan_pat != default_pan_pat:
         m = re.search(default_pan_pat, search_text, re.IGNORECASE)
     if m:
+        # Extract the 10-character alphanumeric PAN
         pan = m.group(1).strip()
 
     # Strategy (try template strategy_pattern first, then fallback)
@@ -181,18 +194,25 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
 # strat_pat came from the LLM.
 
     if strat_pat:
+        # re.sub replaces any '\s+' with '[ \t]+' so the regex only matches within a single horizontal line
         h_strat_pat = re.sub(r"\\s\+", r"[ \t]+", strat_pat)
 # takes the LLM's regex and swaps \s+ with [ \t]+ (only spaces and tabs). It puts a safety bumper on the LLM's pattern so it is locked strictly to a single horizontal line!
 
+        # re.finditer returns an iterator yielding Match objects for all non-overlapping matches
         for m in re.finditer(h_strat_pat, search_text, re.IGNORECASE):
+            # m.group(1) extracts the matched scheme/strategy name string
             val = m.group(1).strip()
+            # Split off neighboring column labels if columns ran together horizontally
             val = re.split(r"(?:PAN|Tax ID|Currency|Base Currency|Portfolio Currency|Class|Series|Status|Address|Mobile|Custodian|Commitment)", val, flags=re.IGNORECASE)[0].strip()
+            # Filter out false-positive matches that are actually section headers or disclaimers
             if any(val.upper().startswith(k) for k in ["DETAILS", "PROFILE", "SERVICES", "MANAGEMENT", "SUMMARY", "SEBI", "INR", "USD", "&", "METADATA", "VALUATION", "REPORT", "STATEMENT"]) or "METADATA" in val.upper():
                 continue
+            # Legitimate strategy names typically have 3 or more characters (e.g. 'Multicap Growth')
             if len(val) >= 3:
                 strategy = val
                 break
 
+    # Fallback heuristic: search for common strategy prefix keywords with regex lookarounds
     if not strategy:
         strat_candidates = re.finditer(
             r"(?:Scheme Name|Scheme|PMS Approach|Approach|Strategy Name|Strategy|Mandate|Plan|(?:(?<!discretionary\s)(?<!discretionary\sportfolio\s)\bPortfolio\b(?!\s*management)(?!\s*details)(?!\s*currency)(?!\s*profile)(?!\s*worth)))[ \t]*[:\s]?[ \t]+([^\r\n]+)",
@@ -201,7 +221,9 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
         )
         for m in strat_candidates:
             val = m.group(1).strip()
+            # re.split isolates the text before any adjacent metadata column label
             val = re.split(r"(?:PAN|Tax ID|Currency|Base Currency|Portfolio Currency|Class|Series|Status|Address|Mobile|Custodian|Commitment)", val, flags=re.IGNORECASE)[0].strip()
+            # Skip if matched text starts with a known boilerplate keyword
             if any(val.upper().startswith(k) for k in ["DETAILS", "PROFILE", "SERVICES", "MANAGEMENT", "SUMMARY", "SEBI", "INR", "USD", "&", "METADATA", "VALUATION", "REPORT", "STATEMENT"]) or "METADATA" in val.upper():
                 continue
             if len(val) >= 3:
@@ -211,14 +233,18 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
     # Currency: extract and normalize explicitly without blind default
     currency = None
     curr_pat = fields.get("currency_pattern")
+    # Step 1: Check template currency regex pattern
     if curr_pat:
         cm = re.search(curr_pat, search_text, re.IGNORECASE)
         if cm:
+            # Normalize symbol or code (e.g. 'Rs.' or '₹' -> 'INR', '$' -> 'USD')
             currency = normalize_currency(cm.group(1) if cm.groups() else cm.group(0))
 
+    # Step 2: Check if template has a static currency override (e.g. fields.currency = "INR")
     if not currency and fields.get("currency"):
         currency = normalize_currency(fields.get("currency"))
 
+    # Step 3: Check standard label format (e.g. "Base Currency: INR" or "Currency - USD")
     if not currency:
         m = re.search(
             r"(?:Base\s*Currency|Portfolio\s*Currency|Fund\s*Currency|Reporting\s*Currency|Valuation\s*Currency|Currency)[ \t]*[:\-\s][ \t]*([A-Za-z]{3}|Rs\.?|₹|\$|€|£)",
@@ -228,6 +254,7 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
         if m:
             currency = normalize_currency(m.group(1))
 
+    # Step 4: Check if currency is placed on the next line below the label
     if not currency:
         m = re.search(
             r"(?:Base\s*Currency|Portfolio\s*Currency|Fund\s*Currency|Reporting\s*Currency|Valuation\s*Currency|Currency)[\s\r\n]+([A-Za-z]{3}|Rs\.?|₹|\$|€|£)\b",
@@ -237,6 +264,7 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
         if m:
             currency = normalize_currency(m.group(1))
 
+    # Step 5: Check descriptive note formats (e.g. "Figures in Rupees" or "amounts in USD")
     if not currency:
         m = re.search(
             r"(?:figures|amounts?|values?)\s+in\s+([A-Za-z]{3}|Rs\.?|₹|\$|€|£|Rupees|US\s*Dollars?)",
@@ -246,29 +274,38 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
         if m:
             currency = normalize_currency(m.group(1))
 
+    # Step 6: Infer from table column headers or currency symbols if no explicit header label was printed
     if not currency:
         if re.search(r"\(Rs\.?\)|Gross Amount \(Rs\.\)|Cost Basis\s*\(Rs\.\)|\bRs\.\s*\d", search_text, re.IGNORECASE) or "₹" in search_text:
             currency = "INR"
         elif "(USD)" in search_text or "USD " in search_text or "in USD" in search_text or "Series USD" in search_text:
             currency = "USD"
+    # Note: If no currency is found, currency remains None. It is NOT defaulted to INR (fail closed)
 
 
     # Period: try template period.pattern first, then standard fallbacks
     period_start = None
     period_end = ""
+    # Retrieve period configuration from template dictionary
     period_cfg = template.get("period", {})
     tmpl_period_pat = period_cfg.get("pattern")
 
+    # If the template defined a custom regex pattern for accounting dates
     if tmpl_period_pat:
         pm = re.search(tmpl_period_pat, search_text, re.IGNORECASE)
         if pm:
+            # pm.groups() returns a tuple of all captured substrings in parentheses (...)
             groups = pm.groups()
+            # Case 1: 2 groups captured -> Start date and End date (e.g. '01-Apr-2023' to '31-Mar-2024')
             if len(groups) == 2:
                 period_start = parse_date(groups[0].replace(" ", "-"))
                 period_end = parse_date(groups[1].replace(" ", "-"))
+            # Case 2: 4 groups captured -> Month-Year range (e.g. 'July' '2023' to 'September' '2023')
             elif len(groups) == 4:
                 start_m, start_y, end_m, end_y = groups
+                # Start date snaps to the 1st of the starting month (e.g. '01-Jul-2023')
                 period_start = parse_date(f"01-{start_m[:3]}-{start_y}")
+                # End date snaps to standard financial quarter closing dates (30 vs 31 days)
                 if end_m.lower().startswith("sep"):
                     period_end = f"{end_y}-09-30"
                 elif end_m.lower().startswith("dec"):
@@ -277,19 +314,24 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
                     period_end = f"{end_y}-03-31"
                 elif end_m.lower().startswith("jun"):
                     period_end = f"{end_y}-06-30"
+            # Case 3: 1 group captured -> Point-in-time valuation snapshot date (e.g. '31-Mar-2024')
             elif len(groups) == 1:
                 dt_str = groups[0].strip().replace(" ", "-")
                 period_end = parse_date(dt_str)
+                # If template specifies 'first_of_month', infer the start date as the 1st of that month
                 if period_end and period_cfg.get("infer_start") == "first_of_month":
                     dt_obj = datetime.strptime(period_end, "%Y-%m-%d")
                     period_start = f"{dt_obj.year:04d}-{dt_obj.month:02d}-01"
 
+    # Fallback date extraction when template regex is not defined or failed to match
     if not period_end:
+        # Search for two dates separated by 'to', '-', or 'through'
         range_match = re.search(r"([0-9]{1,4}[-\/\.][0-9A-Za-z]+[-\/\.][0-9]{2,4})\s*(?:to|through|\-|–|—)\s*([0-9]{1,4}[-\/\.][0-9A-Za-z]+[-\/\.][0-9]{2,4})", search_text, re.IGNORECASE)
         if range_match:
             period_start = parse_date(range_match.group(1))
             period_end = parse_date(range_match.group(2))
         else:
+            # Search for named financial quarters (e.g. 'Quarter: April 2023 - June 2023')
             q_match = re.search(r"Quarter:\s*([A-Za-z]+)\s+([0-9]{4})\s*-\s*([A-Za-z]+)\s+([0-9]{4})", search_text, re.IGNORECASE)
             if q_match:
                 start_m, start_y, end_m, end_y = q_match.groups()
@@ -303,6 +345,7 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
                 elif end_m.lower().startswith("jun"):
                     period_end = f"{end_y}-06-30"
             else:
+                # Search for single valuation snapshot phrases (e.g. 'Report Date: 31-Oct-2024')
                 single_m = re.search(r"(?:month ended|Report Date|Valuation Date|As on|As of)\s*[:\s]\s*([0-9]{1,2}[-\/\s][A-Za-z0-9]+[-\/\s][0-9]{4})", search_text, re.IGNORECASE)
                 if single_m:
                     dt_str = single_m.group(1).strip().replace(" ", "-")
@@ -311,6 +354,7 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
                         dt_obj = datetime.strptime(period_end, "%Y-%m-%d")
                         period_start = f"{dt_obj.year:04d}-{dt_obj.month:02d}-01"
 
+    # Assemble and return validated StatementMeta Pydantic data model
     return StatementMeta(
         provider=strip_leading_label(provider_name) or provider_name,
         strategy=strip_leading_label(strategy),
@@ -341,53 +385,78 @@ class StatementParser:
             return self._parse_ruled_table(file_path, template)
 
     def _parse_ruled_table(self, file_path: str, template: Dict[str, Any]) -> List[StatementRecord]:
+        # Holds the extracted StatementRecord objects (1 for single statements, multiple for batch PDFs)
         records = []
         fields_cfg = template.get("fields", {})
         tmpl_cid_pat = fields_cfg.get("client_id_pattern")
         default_cid_pat = r"(?:CLIENT ID|FOLIO\s*/\s*CLIENT CODE|ACCOUNT NO|INVESTOR CODE|UNITHOLDER ID|CLIENT CODE)\s*[:\s]\s*([A-Za-z0-9\/\-]+)"
 
+        # pdfplumber.open opens the PDF canvas and exposes high-precision visual geometry tools
         with pdfplumber.open(file_path) as pdf:
+            # List of page-lists: [[page1, page2], [page3, page4]] for multi-client statements
             pages_by_statement = []
+            # Accumulator list for pages belonging to the current statement being assembled
             current_statement_pages = []
+            # Tracks client ID of current statement to detect boundary when next client begins
             last_client_id = None
 
+            # Iterate through each physical page of the PDF sequentially
             for page in pdf.pages:
                 text = page.extract_text() or ""
                 cid_match = None
+                # Check template regex pattern first
                 if tmpl_cid_pat:
                     cid_match = re.search(tmpl_cid_pat, text, re.IGNORECASE)
+                # Fall back to default client ID regex if template pattern is not set or failed
                 if not cid_match:
                     cid_match = re.search(default_cid_pat, text, re.IGNORECASE)
 
                 if cid_match:
                     found_cid = cid_match.group(1).strip()
 # 1. Did the Client ID just change? (Boundary between two clients)
+                    # If this page has a different Client ID than preceding pages, a new statement has begun
                     if last_client_id is not None and found_cid != last_client_id:
+                        # Save accumulated pages for previous statement
                         pages_by_statement.append(current_statement_pages)
+                        # Start a fresh page list starting with this page for the new client
                         current_statement_pages = [page]
                         last_client_id = found_cid
                     else:
+                        # Same client continuing on a new page (Page 2, Page 3, etc.)
                         current_statement_pages.append(page)
                         last_client_id = found_cid
                 else:
+                    # Continuation page (header with Client ID was not reprinted on this page)
                     current_statement_pages.append(page)
 
+            # Flush the final statement accumulated after the loop terminates
             if current_statement_pages:
                 pages_by_statement.append(current_statement_pages)
 
+            # Process each individual client's statement in complete isolation
             for stmt_pages in pages_by_statement:
+                # Find first page with identity tokens (skips cover pages or disclaimer covers)
                 first_page = next((p for p in stmt_pages if re.search(r"(?:CLIENT ID|Client ID|FOLIO|PAN|INP\d+)", p.extract_text() or "", re.IGNORECASE)), stmt_pages[0])
+                # Concatenate full text across all pages of this statement for global keyword searches
                 full_text = "\n".join(p.extract_text() or "" for p in stmt_pages)
 
+                # Read page width dynamically in PDF points (72 points = 1 inch)
                 w = first_page.width
+                # Slices left column: from 20pt left margin to 50% centerline (w/2), between 70pt and 210pt top
                 left_crop = first_page.crop((20, 70, w / 2, 210)).extract_text() or ""
+                # Slices right column: from 50% centerline (w/2) to right margin, between 70pt and 210pt top
                 right_crop = first_page.crop((w / 2, 70, w - 20, 210)).extract_text() or ""
 
+                # Step 1: Extract account identity, period, and currency metadata
                 meta = extract_metadata_from_text(full_text, template, left_crop, right_crop)
+                # Step 2: Extract opening corpus, additions, withdrawals, gain, fees, closing valuation
                 summary = self._extract_table_summary(stmt_pages, template)
+                # Step 3: Extract individual stock holdings, quantities, prices, and market values
                 holdings = self._extract_table_holdings(stmt_pages, template, summary)
+                # Step 4: Extract trade ledger (buys, sells, dividends, inflows, outflows)
                 transactions = self._extract_table_transactions(stmt_pages, template, holdings)
 
+                # Assemble complete extracted StatementRecord data model
                 records.append(StatementRecord(
                     statement=meta,
                     summary=summary,
@@ -399,9 +468,12 @@ class StatementParser:
 
     def _extract_table_summary(self, pages: List[Any], template: Dict[str, Any]) -> Summary:
         summary_cfg = template.get("summary", {})
+        # Check if statement prints a gain/loss column (False for layouts like Banyan Tree)
         has_gain = summary_cfg.get("has_gain", True)
+        # Dictionary mapping canonical keys (opening, inflow, gain, etc.) to template column names
         s_map: Dict[str, str] = summary_cfg.get("mapping", {})
 
+        # Initialize summary data dictionary with safe numeric defaults
         summary_dict: Dict[str, Any] = {
             "opening": 0.0,
             "inflow": 0.0,
@@ -413,29 +485,39 @@ class StatementParser:
             "missing_columns": []
         }
 
+        # Lowercase list of expected column names for case-insensitive matching
         mapped_labels = [v.lower() for v in s_map.values() if v]
 
+        # Scan each page for tabular structures using pdfplumber's table engine
         for page in pages:
+            # extract_tables detects 2D ruled grid structures based on intersecting vector lines
             tables = page.extract_tables()
             for t in tables:
+                # Discard empty tables or tables with no data row (needs at least header + 1 data row)
                 if not t or len(t) < 2:
                     continue
+                # Normalize top row (header) by stripping extra whitespace and converting to lowercase
                 header = [re.sub(r"\s+", " ", str(c).strip().lower()) for c in t[0] if c]
                 hdr_str = " ".join(header)
 
                 is_summary_table = False
+                # Table qualifies as summary if at least 2 mapped template column names match its headers
                 if mapped_labels and sum(1 for lbl in mapped_labels if any(_col_matches_label(h, lbl) for h in header)) >= 2:
                     is_summary_table = True
+                # Fallback: check for standard rollforward keywords in table headers
                 elif any(k in hdr_str for k in ["opening", "closing", "corpus", "nav per unit", "drawdowns", "subscriptions", "worth at start"]):
                     is_summary_table = True
 
+                # Standard horizontal summary tables consist of exactly 2 rows: [Headers, Values]
                 if is_summary_table and len(t) == 2:
                     cols = [re.sub(r"\s+", " ", str(c).strip().lower()) for c in t[0]]
                     vals = t[1]
 
+                    # zip(cols, vals) pairs each header column name with its cell value in row 1
                     for c_name, val in zip(cols, vals):
                         if not val:
                             continue
+                        # safe_num parses monetary strings to float, handling commas, Dr/Cr suffixes, brackets
                         num = safe_num(str(val))
 
                         # 1. Check explicit template mapping first
@@ -446,11 +528,14 @@ class StatementParser:
                                 break
 
                         if matched_field:
+                            # Gain can be positive or negative (clean_number preserves accounting minus)
                             if matched_field == "gain":
                                 summary_dict["gain"] = clean_number(str(val))
+                            # Track management fee and accumulate into total periodic fee
                             elif matched_field == "mgmt_fee":
                                 summary_dict["mgmt_fee"] = abs(num)
                                 summary_dict["fee"] += abs(num)
+                            # Track performance fee / carry and accumulate into total fee
                             elif matched_field == "perf_fee":
                                 summary_dict["perf_fee"] = abs(num)
                                 summary_dict["fee"] += abs(num)
@@ -490,9 +575,11 @@ class StatementParser:
                             elif any(k in c_name for k in ["closing", "ending", "ending worth"]):
                                 summary_dict["closing"] = abs(num)
 
+        # If both mgmt_fee and perf_fee were itemized, verify that total fee reflects their sum
         if summary_dict.get("mgmt_fee") is not None and summary_dict.get("perf_fee") is not None:
             summary_dict["fee"] = summary_dict["mgmt_fee"] + summary_dict["perf_fee"]
 
+        # Instantiate and return validated Summary Pydantic model
         return Summary(**summary_dict)
 
     def _extract_table_holdings(self, pages: List[Any], template: Dict[str, Any], summary: Optional[Summary] = None) -> List[Holding]:
@@ -515,19 +602,24 @@ class StatementParser:
                 hdr_str = " ".join(header)
 
                 is_holdings_table = False
+                # Table qualifies as holdings table if at least 2 mapped column names match its headers
                 if mapped_labels and sum(1 for lbl in mapped_labels if any(_col_matches_label(h, lbl) for h in header)) >= 2:
                     is_holdings_table = True
+                # Fallback: check for standard stock/portfolio keywords in header string
                 elif re.search(r"\b(security|scrip|company|instrument|portfolio company)\b", hdr_str) or any(k in hdr_str for k in ["% alloc", "% nav"]):
+                    # Ensure it is not a trade activity or transaction ledger table
                     if not any(k in hdr_str for k in ["particulars", "execution date", "notice date", "trade date", "txn", "description"]):
                         is_holdings_table = True
 
                 if is_holdings_table:
+                    # Clean and normalize header columns for this holdings table
                     cols = [re.sub(r"\s+", " ", str(c).strip().lower()) for c in t[0] if c is not None]
 
                     # Verify that all template-mapped holding columns exist in this table
                     if h_map and not checked_missing_cols:
                         checked_missing_cols = True
                         for field_key, expected_hdr in h_map.items():
+                            # If an expected column is missing, report it as a diagnostic tag for the validator
                             if not any(_col_matches_label(c, expected_hdr) for c in cols):
                                 if summary is not None:
                                     missing_list = getattr(summary, "missing_columns", [])
@@ -536,6 +628,7 @@ class StatementParser:
                                         missing_list.append(issue_tag)
                                     summary.missing_columns = missing_list
 
+                    # Retrieve total, cash, gross long/short, and NAV row labels from template configuration
                     holdings_cfg = template.get("holdings", {})
                     tmpl_total_labels = [lbl.lower().strip() for lbl in holdings_cfg.get("total_row_labels", [])]
                     tmpl_gl_labels = [lbl.lower().strip() for lbl in holdings_cfg.get("gross_long_labels", [])]
@@ -543,6 +636,7 @@ class StatementParser:
                     tmpl_cash_labels = [lbl.lower().strip() for lbl in holdings_cfg.get("cash_row_labels", [])]
                     tmpl_nav_labels = [lbl.lower().strip() for lbl in holdings_cfg.get("nav_row_labels", [])]
 
+                    # Provide safe default keywords if template did not specify row labels
                     fallback_used = False
                     if not tmpl_total_labels:
                         tmpl_total_labels = ["total equity", "total securities", "subtotal listed equities"]
@@ -557,6 +651,7 @@ class StatementParser:
                     if not tmpl_nav_labels:
                         tmpl_nav_labels = ["net asset value"]
 
+                    # If fallbacks were needed, record informational issue for template improvement
                     if fallback_used and summary is not None:
                         soft_list = getattr(summary, "soft_issues", [])
                         if "template_missing_row_labels" not in soft_list:
@@ -662,13 +757,17 @@ class StatementParser:
 
                             if matched_field:
                                 if matched_field == "name":
+                                    # Check if the AMC printed the ISIN inside parentheses in the company name column
                                     m_isin = re.search(r"\(([A-Z0-9]{12})\)", val_str)
                                     if m_isin:
+                                        # Extract the 12-character ISIN code
                                         isin = m_isin.group(1)
+                                        # Slice the string to remove the (ISIN) part, leaving only the clean stock name
                                         name = val_str[:m_isin.start()].strip()
                                     else:
                                         name = val_str
                                 elif matched_field == "isin":
+                                    # Ensure ISIN matches standard 12-character alphanumeric format
                                     if isin is None and re.match(r"^[A-Z0-9]{12}$", val_str):
                                         isin = val_str
                                 elif matched_field == "instrument":
@@ -714,11 +813,13 @@ class StatementParser:
                                 elif any(k in c_name for k in ["weight", "% alloc", "% nav", "allocation", "share %"]):
                                     weight_pct = num
 
+                        # Discard invalid rows (e.g. empty names, currency headers, or cash lines)
                         if not name or name.startswith(("Rs.", "INR", "USD")) or name.lower().startswith("cash"):
                             continue
                         if supports_short and qty == 0.0:
                             continue
 
+                        # For AIF Category III funds: negate short positions (liabilities/derivatives)
                         if supports_short and current_side == "short":
                             qty = -abs(qty)
                             market_value = -abs(market_value)
@@ -735,6 +836,7 @@ class StatementParser:
                         elif avg_cost is None and total_cost is not None and qty != 0:
                             avg_cost = round(total_cost / abs(qty), 4)
 
+                        # Assemble dictionary representing a single validated portfolio holding
                         holding_dict = {
                             "name": name,
                             "isin": isin,
@@ -750,6 +852,7 @@ class StatementParser:
                         if is_unlisted:
                             holding_dict["instrument"] = instrument
 
+                        # Append validated Pydantic Holding instance
                         holdings.append(Holding(**holding_dict))
 
         return holdings
@@ -757,7 +860,9 @@ class StatementParser:
     def _extract_table_transactions(self, pages: List[Any], template: Dict[str, Any], holdings: List[Holding]) -> List[Transaction]:
         transactions = []
         tx_cfg = template.get("transactions", {})
+        # Mapping dictionary connecting canonical transaction attributes to table column headers
         t_map: Dict[str, str] = tx_cfg.get("mapping", {})
+        # Maps raw document action strings to standard transaction enums (buy, sell, fee, inflow, outflow)
         raw_type_map: Dict[str, str] = tx_cfg.get("type_map", {
             "INFLOW": "inflow", "OUTFLOW": "outflow", "BUY": "buy", "SELL": "sell",
             "PURCHASE": "buy", "SALE": "sell", "DIVIDEND": "dividend", "FEE": "fee",
@@ -765,6 +870,7 @@ class StatementParser:
             "SUBSCRIPTION": "inflow", "REDEMPTION": "outflow", "MANAGEMENT FEE": "fee",
             "PERFORMANCE FEE": "fee", "MGMT FEE": "fee", "PERF FEE": "fee"
         })
+        # Uppercase all dictionary keys for case-insensitive lookup
         type_map_upper = {re.sub(r"\s+", " ", k.upper().strip()): v for k, v in raw_type_map.items()}
         mapped_labels = [v for v in t_map.values() if v]
 
@@ -777,14 +883,17 @@ class StatementParser:
                 hdr_str = " ".join(header)
 
                 is_tx_table = False
+                # Table qualifies as transaction table if at least 2 mapped column labels match its header
                 if mapped_labels and sum(1 for lbl in mapped_labels if any(_col_matches_label(h, lbl) for h in header)) >= 2:
                     is_tx_table = True
+                # Fallback: check for standard transaction ledger keywords
                 elif any(k in hdr_str for k in ["particulars", "action", "narration", "transaction type", "txn", "ref no.", "description"]):
                     is_tx_table = True
 
                 if is_tx_table:
                     cols = [re.sub(r"\s+", " ", str(c).strip().lower()) for c in t[0] if c is not None]
 
+                    # Iterate through transaction data rows
                     for row in t[1:]:
                         if not row or not any(row):
                             continue
@@ -796,6 +905,7 @@ class StatementParser:
                         price = None
                         amount = 0.0
 
+                        # zip pairs each column name with the cell value in that row
                         for c_name, val in zip(cols, row):
                             if val is None or str(val).strip() in ["", "-"]:
                                 continue
@@ -811,6 +921,7 @@ class StatementParser:
 
                             if matched_field:
                                 if matched_field == "date":
+                                    # parse_date normalizes string to ISO 'YYYY-MM-DD'
                                     tx_date = parse_date(val_str)
                                 elif matched_field == "raw_type":
                                     raw_type = val_str
@@ -832,7 +943,7 @@ class StatementParser:
                                     amount = abs(num)
                                 continue
 
-                            # 2. Fallback synonyms
+                            # 2. Fallback synonyms when template has no transaction mapping
                             if any(k in c_name for k in ["date", "notice date", "trade date"]):
                                 tx_date = parse_date(val_str)
                             elif any(k in c_name for k in ["type", "action", "txn"]):
@@ -851,13 +962,16 @@ class StatementParser:
                             elif any(k in c_name for k in ["amount", "net total", "gross amount", "value", "net amount"]):
                                 amount = abs(num) if num is not None else 0.0
 
+                        # A transaction entry must have at least a date and an action type
                         if not tx_date or not raw_type:
                             continue
 
+                        # Normalize raw action string for dictionary lookup
                         norm_raw = re.sub(r"\s+", " ", raw_type.upper().strip())
                         norm_raw_underscore = norm_raw.replace(" ", "_")
                         std_type = type_map_upper.get(norm_raw) or type_map_upper.get(norm_raw_underscore)
 
+                        # Comprehensive dictionary mapping common AMC/Bank transaction labels to standard enums
                         if not std_type:
                             STANDARD_TYPE_MAP = {
                                 "INFLOW": "inflow", "ADDITION": "inflow", "ADDITIONS": "inflow",
