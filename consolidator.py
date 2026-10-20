@@ -70,7 +70,9 @@ class PortfolioConsolidator:
         excluded: List[Dict[str, Any]] = []
         candidate_records: List[StatementRecord] = []
 
+        # Step 1: Filter eligible statements based on financial validation, PAN, currency, and period
         for r in results:
+            # Rule 1.1: Only validated statements are permitted into the consolidated net worth
             if r.status != "validated":
                 excluded.append({
                     "source_file": r.file,
@@ -81,6 +83,7 @@ class PortfolioConsolidator:
                 continue
 
             for stmt in r.statements:
+                # Rule 1.2: Match by Indian Permanent Account Number (PAN)
                 if stmt.statement.pan != target_pan:
                     excluded.append({
                         "source_file": r.file,
@@ -91,6 +94,7 @@ class PortfolioConsolidator:
                     })
                     continue
 
+                # Rule 1.3: Reject statements with missing or unverified currency (Fail Closed)
                 if not stmt.statement.currency:
                     excluded.append({
                         "source_file": r.file,
@@ -100,6 +104,7 @@ class PortfolioConsolidator:
                     })
                     continue
 
+                # Rule 1.4: Prevent cross-currency addition (e.g. adding USD amounts directly to INR)
                 if stmt.statement.currency != target_currency:
                     excluded.append({
                         "source_file": r.file,
@@ -110,6 +115,7 @@ class PortfolioConsolidator:
                     })
                     continue
 
+                # Rule 1.5: Match valuation date / accounting period
                 if target_period_end is not None and stmt.statement.period_end != target_period_end:
                     excluded.append({
                         "source_file": r.file,
@@ -163,7 +169,8 @@ class PortfolioConsolidator:
         total_corpus = sum(rec.summary.closing for rec in selected_records)
         total_cash = sum(rec.summary.cash for rec in selected_records)
 
-        # 4. Join Listed Holdings by ISIN
+        # 4. Join Listed Holdings by ISIN across all accounts and providers
+        # If Client owns Reliance shares in ICICI PMS and also in Alchemy PMS, their quantities and values are combined!
         isin_map = defaultdict(lambda: {
             "name": "",
             "quantity": 0.0,
@@ -189,10 +196,11 @@ class PortfolioConsolidator:
                     entry["quantity"] += h.quantity
                     entry["market_value"] += h.market_value
                     entry["total_cost"] += (h.total_cost or 0.0)
+                    # Record which AMC/manager manages this position
                     entry["providers"].add(prov)
                     total_equity_value += h.market_value
                 else:
-                    # Unlisted AIF holding bucket
+                    # Unlisted AIF holding bucket (Private equity / venture capital without ISIN)
                     total_aif_value += h.market_value
                     aif_holdings.append({
                         "name": h.name,
@@ -203,7 +211,7 @@ class PortfolioConsolidator:
                         "instrument": getattr(h, "instrument", None)
                     })
 
-        # Build list of consolidated listed holdings
+        # Build list of consolidated listed holdings with portfolio-wide weight percentage
         consolidated_listed: List[ConsolidatedHolding] = []
         for isin, data in sorted(isin_map.items()):
             wt = (data["market_value"] / total_corpus * 100.0) if total_corpus > 0 else 0.0

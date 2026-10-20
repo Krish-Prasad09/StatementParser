@@ -123,7 +123,10 @@ class ProcessingPipeline:
         """
         filename = os.path.basename(file_path)
         rel_name = file_path.replace("sample_data/", "").replace("sample_data\\", "").replace("\\", "/")
+        # rel_name attempts to normalize the path and remove the sample_data/ prefix.
         effective_path = file_path
+# initially points to the original file. It may later point to a temporary decrypted PDF.
+
         temp_decrypted_created = False
 
         if self.store is not None:
@@ -264,6 +267,10 @@ class ProcessingPipeline:
             llm_calls = 0
 
             if is_drift:
+#                 Creates the new format ID.
+# - If the ID already ends in _v2, reuse it.
+# - Otherwise, append _v2.
+# - If no ID exists, use format_v2.
                 v2_format_id = matched_format_id if (matched_format_id and matched_format_id.endswith("_v2")) else f"{matched_format_id or 'format'}_v2"
                 if self.learner.has_template(v2_format_id):
                     template_dict = self.learner.load_template(v2_format_id)
@@ -277,7 +284,8 @@ class ProcessingPipeline:
                         template_dict = learned_tmpl
                         matched_format_id = v2_format_id
                         self._load_templates()
-                    elif template_dict:
+                    elif template_dict: 
+                        # If learning not succeeds
                         import copy
                         v2_cand = copy.deepcopy(template_dict)
                         v2_cand["format_id"] = v2_format_id
@@ -285,15 +293,25 @@ class ProcessingPipeline:
                         v2_cand["approved"] = False
                         v2_cand["status"] = "pending_approval"
                         fp = v2_cand.setdefault("fingerprint", {})
+# Gets the fingerprint dictionary. If it doesn't exist, creates an empty one.
+
                         if features.get("table_headers"):
                             fp["table_headers"] = list(features["table_headers"])
+                            # Updates the fingerprint with the new document's table headers. list() creates a list copy.
+                        
                         doc_cols = []
                         for h_line in features.get("table_headers", []):
                             for col in h_line.split("|"):
+# Splits each header line wherever the | character occurs.
+
                                 if col.strip():
                                     doc_cols.append(col.strip())
                         h_map = v2_cand.get("holdings", {}).get("mapping", {})
+# Gets the old template's holdings-column mapping. If either dictionary is missing, uses an empty dictionary.
+
                         if h_map and doc_cols:
+# Continues only if both the mappings and the new document's column names exist.
+
                             from fingerprinter import _col_matches_label
                             missing_keys = [
                                 k for k, exp_hdr in h_map.items()
@@ -351,6 +369,7 @@ class ProcessingPipeline:
             # -------------------------------------------------------------
             # STEP 5: Financial Auditing & Validation
             # -------------------------------------------------------------
+            # Audits extracted records against 14 financial and mathematical rules
             status, issues = self.validator.validate(
                 file_path=effective_path,
                 records=records,
@@ -359,6 +378,7 @@ class ProcessingPipeline:
             )
 
             # Soft revision check: Same (provider, client_id, period_end) with different content hash
+            # Detects if AMC re-printed the PDF with updated financial numbers vs just changed PDF metadata
             file_ext = os.path.splitext(effective_path)[1].lower()
             for rec in records:
                 rev_provider = rec.statement.provider or matched_format_id
@@ -385,6 +405,7 @@ class ProcessingPipeline:
                             issues.append(rev_issue)
                         status = "needs_review"
 
+            # Fail closed: If document has missing continuation pages, wipe partial records
             if "incomplete_document_missing_continuation_page" in issues:
                 records = []
 
@@ -402,6 +423,8 @@ class ProcessingPipeline:
             return res
 
         finally:
+            # Ephemeral shredding: Securely delete temporary decrypted PDF files immediately
+            # Guarantees decrypted client PII never lingers in plaintext on server disk storage
             if temp_decrypted_created and effective_path and os.path.exists(effective_path):
                 try:
                     os.remove(effective_path)

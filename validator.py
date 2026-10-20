@@ -39,14 +39,14 @@ class FinancialValidator:
                 for page_idx, page in enumerate(pdf.pages):
                     text = page.extract_text() or ""
 
-                    # Check footer page pattern: e.g. "Page 1 of 2"
+                    # Check footer page pattern: e.g. "Page 1 of 2" when document only has 1 page
                     m = re.search(r"Page\s+(\d+)\s+of\s+(\d+)", text, re.IGNORECASE)
                     if m:
                         curr_p, total_p = int(m.group(1)), int(m.group(2))
                         if total_p > actual_pages:
                             return "incomplete_document_missing_continuation_page"
 
-                    # Check for explicit continuation text on last page
+                    # Check for explicit continuation text on last page (e.g. "...continued on next page")
                     if page_idx == actual_pages - 1:
                         if "...continued on next page" in text.lower() or "continued on page" in text.lower():
                             return "incomplete_document_missing_continuation_page"
@@ -127,6 +127,7 @@ class FinancialValidator:
                         issues.append(mc)
 
             # Check A: Required metadata (Fail closed)
+            # A valid wealth management statement MUST possess client ID, period end date, provider, and strategy
             tmpl_fields = template.get("fields", {}) if template else {}
             if not meta.client_id or not meta.period_end or not meta.provider or meta.provider.strip().lower() in ("unknown", "unknown provider"):
                 if "missing_required_metadata" not in issues:
@@ -136,6 +137,7 @@ class FinancialValidator:
                     issues.append("missing_required_metadata")
 
             # Check A0: Mandatory currency extraction & validation (Fail closed on missing/unverified currency)
+            # Rejects unverified currency so multi-currency statements (e.g. USD vs INR) are never corruptly merged
             normalized_curr = normalize_currency(meta.currency)
             if not meta.currency or not normalized_curr:
                 if "missing_currency" not in issues:
@@ -147,6 +149,7 @@ class FinancialValidator:
 
 
             # Check A2: Metadata sanity check (single line <= 80 chars, no newline, no amount pattern)
+            # Prevents parsing errors where table amounts or multiple paragraphs bleed into metadata fields
             for m_field in ("client_id", "client_name", "strategy", "provider"):
                 m_val = getattr(meta, m_field, None)
                 if m_val:
@@ -165,7 +168,8 @@ class FinancialValidator:
                 if "empty_statement_zero_balances" not in issues:
                     issues.append("empty_statement_zero_balances")
 
-            # Check C: ISIN Luhn Checksum validation
+            # Check C: ISIN Luhn Checksum validation (ISO 6166 Mod-10 algorithm)
+            # Confirms that extracted 12-character security codes are mathematically valid securities
             for h in holdings:
                 if h.isin and not is_valid_isin(h.isin):
                     if "invalid_isin_checksum" not in issues:
@@ -177,6 +181,7 @@ class FinancialValidator:
                         issues.append("invalid_isin_checksum")
 
             # Check D: Duplicate ISIN detection in holdings
+            # A portfolio statement should not list duplicate entries for the same ISIN under the same account
             seen_isins = set()
             for h in holdings:
                 if h.isin:
@@ -186,6 +191,7 @@ class FinancialValidator:
                     seen_isins.add(h.isin)
 
             # Check E: Missing ISIN for listed holdings
+            # Listed Indian equities must have an ISIN; unlisted PE/VC investments are exempt
             if not is_unlisted:
                 for h in holdings:
                     if not h.isin and h.name and not any(k in h.name.lower() for k in ["cash", "margin", "liquidity", "treasury"]):
@@ -193,6 +199,7 @@ class FinancialValidator:
                             issues.append("missing_isin_for_listed_holding")
 
             # Check F: Holdings Sum vs Stated Total Equity
+            # Sum of extracted individual rows must reconcile with the document's printed "Total Equity" row
             sum_holdings = sum(h.market_value for h in holdings)
             stated_equity = getattr(summary, "stated_equity", None)
             if stated_equity is not None:
@@ -201,7 +208,7 @@ class FinancialValidator:
                         issues.append("holdings_sum_ne_stated_total_equity")
 
             # Check G: Summary Roll-forward Check
-            # Opening + Inflow - Outflow + Gain - Fee == Closing
+            # Fundamental accounting equation: Opening + Inflow - Outflow + Gain - Fee == Closing
             if summary.gain is not None:
                 expected_closing = (
                     summary.opening
@@ -215,6 +222,7 @@ class FinancialValidator:
                         issues.append("summary_rollforward_mismatch")
 
             # Check H: Closing Value vs (Holdings Total + Cash)
+            # Total closing portfolio corpus must equal total holdings market value plus bank/cash reserves
             expected_total = sum_holdings + summary.cash
             if abs(expected_total - summary.closing) > 5.0:
                 if "closing_value_ne_holdings_total" not in issues:
@@ -245,6 +253,7 @@ class FinancialValidator:
                         issues.append("cash_row_not_found")
 
             # Check J: Weights Sum & Holding Weights Reconciliation
+            # Total portfolio allocation weights must sum to 100% (within tolerance, with or without cash)
             weights = [h.weight_pct for h in holdings if h.weight_pct is not None]
             if weights:
                 sum_w = sum(weights)
@@ -255,6 +264,7 @@ class FinancialValidator:
                     if "holdings_weight_sum_invalid" not in issues:
                         issues.append("holdings_weight_sum_invalid")
 
+                # Recalculate individual holding percentage: (market_value / total) * 100
                 total_holdings = sum(h.market_value for h in holdings)
                 for h in holdings:
                     if h.weight_pct is not None and h.market_value is not None:
@@ -265,6 +275,7 @@ class FinancialValidator:
                                 issues.append("holding_weight_mismatch")
 
             # Check K: Per-row Holding Qty x Price == Market Value
+            # Validates that printed security price times share quantity matches printed market value
             for h in holdings:
                 if h.quantity and h.price and h.market_value:
                     expected_mv = abs(h.quantity) * h.price
@@ -278,7 +289,7 @@ class FinancialValidator:
             fee_tx_sum = 0.0
 
             for t in txns:
-                # Unmapped type check
+                # Unmapped type check: must normalize to standard enums (buy, sell, dividend, fee, inflow, outflow)
                 if t.type not in ("buy", "sell", "dividend", "fee", "inflow", "outflow"):
                     if "unmapped_transaction_type" not in issues:
                         issues.append("unmapped_transaction_type")
@@ -305,6 +316,7 @@ class FinancialValidator:
                             issues.append("transaction_date_outside_period")
 
             # Check M: Cross-check transactions vs summary figures
+            # Sum of trade ledger cash flows must reconcile with summary inflow/outflow balances
             if summary.inflow > 0 or inflow_tx_sum > 0:
                 if summary.inflow > 0 and len([t for t in txns if t.type == "inflow"]) == 0:
                     if "missing_transactions_for_summary_flow" not in issues:
@@ -331,6 +343,7 @@ class FinancialValidator:
                         issues.append("transactions_fee_mismatch")
 
             # Check N: AIF Units x NAV per unit == Total Closing NAV
+            # Cat III Alternative Investment Fund NAV per unit formula check
             if summary.units and summary.nav_per_unit and summary.closing > 0:
                 expected_nav = round(summary.units * summary.nav_per_unit, 2)
                 if abs(expected_nav - summary.closing) > self.NAV_PER_UNIT_TOLERANCE:

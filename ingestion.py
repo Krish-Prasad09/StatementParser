@@ -29,9 +29,12 @@ class IngestionEngine:
         Hard duplicate rule: Checks SHA-256 hash of file content.
         Returns the original file path if duplicate, or None if new.
         """
+        # Step 1: Calculate deterministic SHA-256 checksum over the raw bytes of the file
         sha = compute_sha256(file_path)
+        # Step 2: If exact hash has already been seen in this batch/session, return existing file path
         if sha in self.seen_hashes:
             return self.seen_hashes[sha]
+        # Step 3: Record new hash to prevent reprocessing if encountered again
         self.seen_hashes[sha] = relative_name
         return None
 
@@ -53,6 +56,9 @@ class IngestionEngine:
             return None
         stmt_key = (provider.strip().lower(), client_id.strip().upper(), period_end.strip())
         if stmt_key in self.seen_statements:
+            # If we have seen this month before, are the file bytes different?
+            # If the file bytes were identical, the earlier hard-deduplication check already handled it.
+# If the file bytes are different, we now investigate: Did the bank change the file, or did they change the actual financial numbers?
             if self.seen_statements[stmt_key] != file_hash:
                 prev_meta = self.seen_statement_meta.get(stmt_key)
                 if prev_meta and file_ext and data_signature:
@@ -61,6 +67,8 @@ class IngestionEngine:
                         return None
                     if prev_ext == file_ext and prev_sig == data_signature:
                         return "same_content_different_bytes"
+                    # Both files are PDFs, and their financial numbers are 100% identical, but their file byte hashes differed (e.g., the bank re-printed or re-exported the PDF, which updates the internal PDF creation timestamp).
+                
                 return "revision_of_existing_statement"
         else:
             self.seen_statements[stmt_key] = file_hash
@@ -78,7 +86,9 @@ class IngestionEngine:
         # 1. Check for encryption via pypdf
         try:
             reader = pypdf.PdfReader(file_path)
+            # Step A: Is the PDF password protected?
             if reader.is_encrypted:
+                # If password was not provided, fail-safe: request password from user/environment
                 if not candidate_password or not candidate_password.strip():
                     return True, False, "", file_path, "password_required"
 
@@ -86,16 +96,20 @@ class IngestionEngine:
                 decrypted = False
                 try:
                     res = reader.decrypt(pwd)
+                    # pypdf decrypt() returns 0 on failure, 1 or 2 on success
                     if res != 0:
                         decrypted = True
                 except Exception as dec_err:
                     err_str = str(dec_err).lower()
+                    # Some AES-256 encrypted PDFs require 'cryptography' library installed
                     if any(k in err_str for k in ["cryptography", "crypto", "dependency", "aes"]):
                         return True, False, "", file_path, "pdf_crypto_dependency_missing"
 
+                # If decryption was attempted but returned 0 (wrong password)
                 if not decrypted:
                     return True, False, "", file_path, "password_required"
 
+                # Step B: Re-write unlocked pages into an unencrypted temporary PDF file
                 import tempfile
                 writer = pypdf.PdfWriter()
                 for page in reader.pages:
@@ -104,6 +118,12 @@ class IngestionEngine:
                 with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tf:
                     decrypted_temp_path = tf.name
                     writer.write(tf)
+# Why do we need this? Our table extraction tool (pdfplumber) cannot parse encrypted PDFs directly.
+# So, once pypdf unlocks the pages, it writes them into a temporary decrypted PDF on disk using tempfile.
+# effective_path is updated to point to this temporary decrypted file.
+# (This temporary file is automatically shredded in pipeline.py's finally block as soon as parsing finishes).
+
+
 
                 effective_path = decrypted_temp_path
 
@@ -114,7 +134,7 @@ class IngestionEngine:
             if "encrypted" in err_str or "password" in err_str:
                 return True, False, "", file_path, "password_required"
 
-        # 2. Extract text with pdfplumber from effective_path
+        # 2. Extract text with pdfplumber from effective_path (high-accuracy layout engine)
         full_text = ""
         try:
             import pdfplumber
@@ -128,11 +148,12 @@ class IngestionEngine:
             if "password" in err_str or "encrypted" in err_str:
                 return True, False, "", effective_path, "password_required"
 
+        # Check: If text layer has substantial characters (>= 30 chars), it is a native digital PDF
         clean_text = full_text.strip()
         if len(clean_text) >= 30:
             return False, True, clean_text, effective_path, None
 
-        # Fallback to pypdf for text
+        # Fallback to pypdf for text extraction if pdfplumber found nothing (e.g. non-standard font encoding)
         try:
             reader = pypdf.PdfReader(effective_path)
             pypdf_text = ""
@@ -144,6 +165,7 @@ class IngestionEngine:
         except Exception:
             pass
 
+        # If total characters extracted across all pages is < 30, it is a scanned image/raster PDF
         return False, False, "", effective_path, "no_text_layer_requires_ocr"
 
     def classify_document(self, text: str, filename: str) -> Tuple[str, Optional[str]]:
@@ -164,23 +186,28 @@ class IngestionEngine:
         ))
 
         # 1. Confident Non-Statements (Factsheets without client-specific holdings, Invoices, Contract Notes)
+        # Check: AMC Marketing Factsheet (contains aggregate fund statistics, but no individual investor folio)
         if re.search(r"\b(monthly\s+factsheet|fund\s+factsheet|factsheet)\b", first_lines) or (
             "this is not a client statement" in lower
         ):
+            # Exception: If an AMC writes "Factsheet" on the cover but it actually contains client ISINs + Client ID, don't drop it!
             if not (has_isin and has_client):
                 return "not_a_statement", None
 
+        # Check: Management fee or custody tax invoice (not a portfolio valuation report)
         if re.search(r"\b(tax\s+invoice|fee\s+invoice|invoice\s+no)\b", first_lines) or (
             "invoice no:" in lower and "total payable" in lower and "holdings" not in lower
         ):
             return "not_a_statement", None
 
+        # Check: Broker single-trade contract note (e.g. 1 execution trade, not a full statement)
         if re.search(r"\b(contract\s+note|single-trade\s+confirmation)\b", first_lines) or (
             "single-trade confirmation. not a periodic portfolio statement" in lower
         ):
             return "not_a_statement", None
 
         # 2. Structural Evidence Checks
+        # Evidence A: Date range (e.g. "01-04-2023 to 31-03-2024") or period keywords
         has_date_range = bool(re.search(
             r"\b[0-9]{1,4}[-\/\.][0-9A-Za-z]{2,9}[-\/\.][0-9]{2,4}\s*(?:to|through|\-|–|—)\s*[0-9]{1,4}[-\/\.][0-9A-Za-z]{2,9}[-\/\.][0-9]{2,4}\b",
             lower
@@ -189,15 +216,18 @@ class IngestionEngine:
             r"\b(period|reporting|window|quarter|month|as\s+on|as\s+of|statement\s+for|valuation\s+date|report\s+date|dated?|ended?)\b",
             lower
         ))
+        # Evidence B: Portfolio vocabulary
         has_portfolio = bool(re.search(
             r"\b(holdings|portfolio|net asset value|valuation|ledger|shares|units|corpus|equity|security|isin|scrip|instrument|drawdown)\b",
             lower
         ))
         has_holdings_table = bool(re.search(r"\b(holdings|valuation|portfolio|securities|scrip|market\s+value)\b", lower))
+        # Evidence C: Financial accounting rollforward labels
         has_summary_label = bool(re.search(
             r"\b(opening\s+(?:balance|value|corpus|nav)|closing\s+(?:balance|value|corpus|nav)|net\s+gain|capital\s+inflows|total\s+equity|market\s+value|ledger\s+summary|portfolio\s+summary)\b",
             lower
         ))
+        # Evidence D: Quantities and prices formatted as currency decimals (e.g. 12,345.00)
         has_numeric_table = bool(
             re.search(r"\b\d+[,.]\d{2}\b", text) and
             re.search(r"\b(qty|units|avg\s*cost|price|market\s*value|nav)\b", lower)
@@ -266,15 +296,18 @@ class IngestionEngine:
         os.makedirs(extract_dir, exist_ok=True)
         with open(eml_path, "rb") as f:
             raw_bytes = f.read()
+        # Parse MIME structure compliant with RFC 5322
         msg = email.message_from_bytes(raw_bytes, policy=policy.default)
 
         subject = msg.get("subject", "")
         sender = msg.get("from", "")
         msg_id_hdr = msg.get("message-id", "")
+        # Create a unique 8-character hash prefix to prevent attachment filename collisions
         msg_prefix = hashlib.sha256((msg_id_hdr or eml_path).encode("utf-8") + raw_bytes[:256]).hexdigest()[:8]
 
         attachments = []
 
+        # Walk recursively through all MIME parts (text/plain, text/html, attachments, inline images)
         for part_idx, part in enumerate(msg.walk()):
             filename = part.get_filename()
             payload = part.get_payload(decode=True)
@@ -285,13 +318,14 @@ class IngestionEngine:
             is_inline_pdf = False
 
             if not filename:
-                # Check for inline PDF without filename
+                # Check for inline PDF without filename (e.g. content-type application/pdf or %PDF magic byte)
                 if content_type == "application/pdf" or payload.startswith(b"%PDF"):
                     filename = f"inline_statement_{part_idx}.pdf"
                     is_inline_pdf = True
                 else:
                     continue
 
+            # Sanitize file name to avoid path traversal vulnerabilities
             safe_name = os.path.basename(filename)
             save_path = os.path.join(extract_dir, f"{msg_prefix}_{part_idx}_{safe_name}")
             with open(save_path, "wb") as out_f:
@@ -419,6 +453,8 @@ class IngestionEngine:
                     res, msg_data = mail.fetch(msg_id, "(BODY.PEEK[])")
                     if res == "OK":
                         raw_email = msg_data[0][1]
+# contains the actual raw binary bytes of the full email (headers, body text, and attachments).
+
                         temp_eml = os.path.join(extract_dir, f"msg_{msg_id.decode()}.eml")
                         with open(temp_eml, "wb") as f:
                             f.write(raw_email)

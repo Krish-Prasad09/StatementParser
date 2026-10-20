@@ -69,10 +69,16 @@ class FormatFingerprinter:
                     if r and r[0] and str(r[0]).strip():
                         prov_val = str(r[0]).strip()
                         break
+# The moment it reaches the real table header (e.g. on Row 6 where it sees "Security | ISIN | Qty"), it saves that header and then breaks to move to the next sheet.
+
                 if prov_val:
                     features["doc_provider"] = normalize_provider_title(prov_val)
+# Shown to users in the Dashboard & Reports
+
                     features["org_slug"] = re.sub(r"[^a-z0-9]+", "_", prov_val.lower())[:25].strip("_")
                     features["provider_key"] = features["org_slug"]
+# Used in File Names (templates/"hestia_capital_partners".json) & Database Keys
+
 
                 for sname in wb.sheetnames:
                     ws = wb[sname]
@@ -128,29 +134,35 @@ class FormatFingerprinter:
             features["provider_key"] = re.sub(r"[^a-z0-9]+", "_", features["sebi_regn"].lower()).strip("_")
 
         # Layout detection via physical line geometry from PDF canvas across all pages
+        # Inspects explicit PDF drawing instructions: vector lines and bounding boxes
         try:
             with pdfplumber.open(file_path) as pdf:
                 if pdf.pages:
                     max_v = 0
                     max_h = 0
                     for p in pdf.pages:
+                        # Horizontal ruled line: negligible height (<2pt) and wide horizontal span (>80pt)
                         h_lines = [l for l in p.lines if abs(l["top"] - l["bottom"]) < 2 and abs(l["x1"] - l["x0"]) > 80]
+                        # Vertical ruled line: negligible width (<2pt) and significant vertical height (>15pt)
                         v_lines = [l for l in p.lines if abs(l["x1"] - l["x0"]) < 2 and abs(l["top"] - l["bottom"]) > 15]
                         if len(v_lines) > max_v:
                             max_v = len(v_lines)
                         if len(h_lines) > max_h:
                             max_h = len(h_lines)
 
+                    # 1. No lines at all: Monospace ASCII or un-ruled layout (e.g. Courier plain text)
                     if max_v == 0 and max_h == 0:
                         features["layout_kind"] = "monospace_text"
+                    # 2. Only horizontal dividers (no vertical column lines): Horizontal lines layout
                     elif max_v == 0 and max_h > 0:
                         features["layout_kind"] = "ruled_lines_horizontal_only"
+                    # 3. Both horizontal and vertical lines present: Standard grid/table layout
                     else:
                         features["layout_kind"] = "ruled_table"
         except Exception:
             pass
 
-        # Extract table headers using pdfplumber if ruled table
+        # Extract table headers using pdfplumber if ruled table... then matched with Templatefingerprint of models.py
         if ext == ".pdf" and features["layout_kind"] == "ruled_table":
             try:
                 with pdfplumber.open(file_path) as pdf:
@@ -191,6 +203,8 @@ class FormatFingerprinter:
                             if t and t[0]:
                                 clean_row = [str(col).replace("\n", " ").strip() for col in t[0] if col is not None]
                                 if clean_row and len(clean_row) >= 3:
+                                    # having atleast 3 columns
+
                                     hdr_str = " | ".join(clean_row)
                                     if hdr_str not in features["table_headers"]:
                                         features["table_headers"].append(hdr_str)
@@ -268,6 +282,7 @@ class FormatFingerprinter:
             tmpl_prov_key = (template.get("provider_key") or "").strip().lower()
 
             # 1. Explicit SEBI conflict check: different SEBI numbers cannot share a template
+            # (Guarantees two different regulated financial entities are NEVER cross-matched)
             if doc_sebi and tmpl_sebi and doc_sebi != tmpl_sebi:
                 continue
 
@@ -277,9 +292,10 @@ class FormatFingerprinter:
             if doc_sebi and tmpl_sebi and doc_sebi == tmpl_sebi:
                 provider_matches = True
             else:
-                # If no SEBI, check provider name conflict & similarity
+                # If no SEBI registration found in text, check provider brand name similarity
                 if doc_prov and tmpl_prov:
                     prov_sim = compute_string_similarity(doc_prov, tmpl_prov)
+                    # Hard threshold: if names are less than 75% similar, reject match
                     if prov_sim < 0.75:
                         continue
                 if doc_prov and tmpl_prov and compute_string_similarity(doc_prov, tmpl_prov) >= 0.80:
@@ -292,6 +308,18 @@ class FormatFingerprinter:
 
             # Build template header representation
             fp = template.get("fingerprint", {})
+#reads from database(templates folder)
+# Every saved JSON file in that folder has a "fingerprint" section stored inside it:
+
+# json
+# {
+#   "format_id": "aurum_capital_monthly",
+#   "fingerprint": {
+#     "summary_headers": ["Opening Corpus", "Inflows", "Gain", "Closing Corpus"],
+#     "holdings_headers": ["Security Name", "ISIN", "Quantity", "Market Value"]
+#   }
+# }
+            
             parts = []
             if "table_headers" in fp and fp["table_headers"]:
                 parts.extend(fp["table_headers"])
@@ -310,13 +338,17 @@ class FormatFingerprinter:
 
             tmpl_headers = " || ".join(parts)
             sim = compute_string_similarity(doc_headers, tmpl_headers)
+#             doc_headers is the header representation extracted from the actual PDF.
+# tmpl_headers is the expected header representation constructed from the template.
 
-            # Check if any mapped column in holdings (or summary for ruled_table) is missing from doc_col_tokens
+            # Check if any mapped column in holdings (or summary for ruled_table) is missing from doc_col_tokens..Therefore, this strict column check is only executed where columns are guaranteed to have clear boundaries.
             missing_mapped_col = False
             if layout_kind in ("ruled_table", "xlsx", "csv_sectioned") and doc_col_tokens:
                 expected_cols = list(template.get("holdings", {}).get("mapping", {}).values())
                 if layout_kind == "ruled_table":
                     expected_cols += list(template.get("summary", {}).get("mapping", {}).values())
+# Since Excel doesn't have horizontal summary column headers, checking for them would fail. Only ruled_table PDFs have multi-column summary tables!
+
                 for exp_col in expected_cols:
                     if exp_col and not any(_col_matches_label(dc, exp_col) for dc in doc_col_tokens):
                         missing_mapped_col = True
@@ -326,8 +358,12 @@ class FormatFingerprinter:
             if template.get("status") == "pending_approval":
                 is_approved = False
 
-            # Clean match requires similarity >= 0.75, no missing mapped columns, and approved status
+            # Clean match requires:
+            # 1. Header similarity >= 0.75 (high textual and structural correlation)
+            # 2. No missing mapped columns (no table columns disappeared or moved)
+            # 3. Template is approved (passed self-check test drive without errors)
             clean_match = bool(sim >= 0.75 and not missing_mapped_col and is_approved)
+            # Give bonus score to clean matches so they outrank drifting/stale templates
             score = (sim + 1.0) if clean_match else sim
 
             matching_candidates.append({
@@ -341,6 +377,7 @@ class FormatFingerprinter:
             })
 
         if not matching_candidates:
+            # No template matched layout + provider + headers -> Brand new unseen format
             return None, None, False
 
         # Select the best-scoring candidate among all products/versions of this provider
@@ -348,8 +385,10 @@ class FormatFingerprinter:
         best = matching_candidates[0]
 
         if best["clean_match"]:
+            # Exact clean match: parse directly with zero LLM calls
             return best["format_id"], best["template"], False
         else:
+            # Layout Drift: Same provider, but headers or columns changed (is_drift=True)
             return best["format_id"], best["template"], True
 
         return None, None, False

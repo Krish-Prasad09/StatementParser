@@ -111,6 +111,7 @@ def find_provider_in_text(text: str, default_fallback: str = "Unknown Provider")
             before_sebi = re.split(r"[,|\-]?\s*SEBI", l, flags=re.IGNORECASE)[0].strip()
             if before_sebi and COMPANY_KEYWORD_PAT.search(before_sebi) and not NOISE_LINE_PAT.search(before_sebi):
                 return normalize_provider_title(before_sebi)
+# ABC Capital Partners | SEBI Registration No. INM000012345            
 
     # 3. First non-noise line
     for l in lines[:10]:
@@ -147,6 +148,7 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
         m = re.search(default_cid_pat, search_text, re.IGNORECASE)
     if m:
         client_id = m.group(1).strip()
+# For example, from CLIENT ID: ABC123, it stores ABC123 in client_id.
 
     # Client Name
     client_name = ""
@@ -158,6 +160,8 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
     if m:
         cname = m.group(1).strip()
         cname = re.split(r"(?:Strategy|PMS Approach|Portfolio|PAN|Scheme|Series|Status|Address|Mandate|Tax ID|Plan|Class|Commitment)", cname, flags=re.IGNORECASE)[0].strip()
+# Rahul Sharma PAN ABCDE1234F stripped to Rahul Sharma
+       
         cname = re.sub(r"^(?:Account Holder|Investor Name|Client Name|Investor|Name)[ \t]*[:\s]?", "", cname, flags=re.IGNORECASE).strip()
         client_name = cname
 
@@ -174,8 +178,12 @@ def extract_metadata_from_text(text: str, template: Dict[str, Any], raw_crop_lef
     # Strategy (try template strategy_pattern first, then fallback)
     strategy = None
     strat_pat = fields.get("strategy_pattern")
+# strat_pat came from the LLM.
+
     if strat_pat:
         h_strat_pat = re.sub(r"\\s\+", r"[ \t]+", strat_pat)
+# takes the LLM's regex and swaps \s+ with [ \t]+ (only spaces and tabs). It puts a safety bumper on the LLM's pattern so it is locked strictly to a single horizontal line!
+
         for m in re.finditer(h_strat_pat, search_text, re.IGNORECASE):
             val = m.group(1).strip()
             val = re.split(r"(?:PAN|Tax ID|Currency|Base Currency|Portfolio Currency|Class|Series|Status|Address|Mobile|Custodian|Commitment)", val, flags=re.IGNORECASE)[0].strip()
@@ -353,6 +361,7 @@ class StatementParser:
 
                 if cid_match:
                     found_cid = cid_match.group(1).strip()
+# 1. Did the Client ID just change? (Boundary between two clients)
                     if last_client_id is not None and found_cid != last_client_id:
                         pages_by_statement.append(current_statement_pages)
                         current_statement_pages = [page]
@@ -563,6 +572,7 @@ class StatementParser:
                             continue
                         row_str = " ".join(str(c) for c in row if c).strip()
 
+                        # Detect section headers inside tables (e.g. Cat III Long vs Short positions)
                         if "long positions" in row_str.lower():
                             current_side = "long"
                             continue
@@ -573,6 +583,7 @@ class StatementParser:
                         first_cell = str(row[0]).strip().lower()
                         mv_label = h_map.get("market_value", "market value")
 
+                        # 1. Capture stated total equity row for validator cross-check
                         if _matches_any_lbl(first_cell, tmpl_total_labels):
                             for c_name, val in zip(cols, row):
                                 if _col_matches_label(c_name, mv_label) or any(k in c_name for k in ["market value", "valuation", "current value", "worth"]):
@@ -581,6 +592,7 @@ class StatementParser:
                                         summary.stated_equity = abs(num)
                             continue
 
+                        # 2. Capture gross long exposure row (AIF Cat III long positions)
                         if _matches_any_lbl(first_cell, tmpl_gl_labels):
                             for c_name, val in zip(cols, row):
                                 if _col_matches_label(c_name, mv_label) or any(k in c_name for k in ["market value", "valuation", "amount"]):
@@ -589,6 +601,7 @@ class StatementParser:
                                         summary.stated_gross_long = abs(num)
                             continue
 
+                        # 3. Capture gross short exposure row (AIF Cat III short/derivative obligations)
                         if _matches_any_lbl(first_cell, tmpl_gs_labels):
                             for c_name, val in zip(cols, row):
                                 if _col_matches_label(c_name, mv_label) or any(k in c_name for k in ["market value", "valuation", "amount"]):
@@ -597,6 +610,7 @@ class StatementParser:
                                         summary.stated_gross_short = -abs(num)
                             continue
 
+                        # 4. Capture cash / bank balance row if printed inside holdings table
                         if _matches_any_lbl(first_cell, tmpl_cash_labels):
                             for c_name, val in zip(cols, row):
                                 if _col_matches_label(c_name, mv_label) or any(k in c_name for k in ["market value", "valuation", "total value", "current value", "amount", "worth"]):
@@ -607,6 +621,7 @@ class StatementParser:
                                             summary.cash = abs(num)
                             continue
 
+                        # 5. Capture Net Asset Value (NAV) row if printed inside holdings table
                         if _matches_any_lbl(first_cell, tmpl_nav_labels):
                             for c_name, val in zip(cols, row):
                                 if _col_matches_label(c_name, mv_label) or any(k in c_name for k in ["market value", "valuation", "amount"]):
@@ -615,6 +630,7 @@ class StatementParser:
                                         summary.stated_nav = abs(num)
                             continue
 
+                        # Skip any subtotal, total, or cash rows so they are not treated as stock holdings
                         if _matches_any_lbl(first_cell, tmpl_total_labels + tmpl_cash_labels + tmpl_nav_labels):
                             continue
 
@@ -709,9 +725,11 @@ class StatementParser:
                             if weight_pct is not None:
                                 weight_pct = -abs(weight_pct)
 
+                        # Derive market price if missing: Price = Market Value / Quantity
                         if price is None and qty != 0 and market_value != 0:
                             price = round(abs(market_value) / abs(qty), 4)
 
+                        # Derive total cost or average cost if only one is printed in the statement
                         if total_cost is None and avg_cost is not None and qty != 0:
                             total_cost = round(avg_cost * abs(qty), 2)
                         elif avg_cost is None and total_cost is not None and qty != 0:

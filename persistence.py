@@ -115,6 +115,7 @@ def _is_pg_target(db_path: Optional[str] = None) -> Tuple[bool, str]:
     - Default (production app flow when db_path is None or "") -> (True, DATABASE_URL)
     """
     _load_env_if_needed()
+    # 1. Explicit PostgreSQL connection URI passed
     if db_path and (str(db_path).startswith("postgresql://") or str(db_path).startswith("postgres://")):
         return True, str(db_path)
 
@@ -122,15 +123,15 @@ def _is_pg_target(db_path: Optional[str] = None) -> Tuple[bool, str]:
     if test_pg and (db_path in (":test:", "test") or os.getenv("STATEMENT_PARSER_TEST_MODE") == "1"):
         return True, test_pg
 
-    # In test mode, never fall back to production DATABASE_URL
+    # 2. In test mode, never fall back to production DATABASE_URL
     if os.getenv("STATEMENT_PARSER_TEST_MODE") == "1":
         return False, str(db_path or ":memory:")
 
-    # Explicit non-PostgreSQL target passed (e.g. tests passing temp .db files or :memory:)
+    # 3. Explicit non-PostgreSQL target passed (e.g. tests passing temp .db files or :memory:)
     if db_path is not None and db_path != "":
         return False, str(db_path)
 
-    # Production default: connect to configured PostgreSQL instance
+    # 4. Production default: connect to configured PostgreSQL instance (e.g. Neon.tech cloud)
     env_url = (os.getenv("DATABASE_URL") or "").strip()
     if env_url:
         return True, env_url

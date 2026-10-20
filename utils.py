@@ -64,13 +64,14 @@ def clean_number(val: Any) -> Optional[float]:
         is_negative = True
         s = s[1:].strip()
 
-    # Detect Dr / Cr suffixes
+    # Detect Dr / Cr suffixes (Debit indicates negative balance / expense in Indian accounting)
     multiplier = 1.0
     if s.upper().endswith(" DR"):
         is_negative = True
         s = s[:-3].strip()
     elif s.upper().endswith(" CR"):
         s = s[:-3].strip()
+    # Support Indian financial number naming: Lakh (10^5) and Crore (10^7)
     elif re.search(r"(?i)\s+lakhs?$", s):
         s = re.sub(r"(?i)\s+lakhs?$", "", s).strip()
         multiplier = 100000.0
@@ -184,14 +185,15 @@ def is_valid_isin(isin: Optional[str]) -> bool:
         return False
     
     isin = isin.strip().upper()
+    # Step 1: Every standard ISIN is strictly 12 characters
     if len(isin) != 12:
         return False
     
-    # First 2 chars must be letters (country code, e.g., 'IN')
+    # Step 2: First 2 chars must be alphabetical country code (e.g., 'IN' for India, 'US' for USA)
     if not (isin[0].isalpha() and isin[1].isalpha()):
         return False
 
-    # Convert letters to digits: A=10, B=11, ..., Z=35
+    # Step 3: Convert letters to digits: A=10, B=11, ..., Z=35 (numbers stay 0-9)
     digits = ""
     for char in isin:
         if char.isdigit():
@@ -201,17 +203,19 @@ def is_valid_isin(isin: Optional[str]) -> bool:
         else:
             return False
 
-    # Double every second digit from right to left
+    # Step 4: Mod-10 Luhn check: Double every second digit starting from the rightmost digit
     total = 0
     reverse_digits = digits[::-1]
     for i, d in enumerate(reverse_digits):
         n = int(d)
         if i % 2 == 1:
             n *= 2
+            # If doubling produces a two-digit number (e.g. 14), sum the two digits: 1 + 4 = 5
             if n > 9:
                 n = (n // 10) + (n % 10)
         total += n
 
+    # Step 5: Checksum is valid if the grand total is an exact multiple of 10
     return (total % 10) == 0
 
 

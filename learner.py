@@ -97,6 +97,8 @@ WORKED_EXAMPLE_TEMPLATE = {
             "BUY": "buy",
             "SELL": "sell",
             "DIVIDEND": "dividend",
+#You receive income from shares you own.
+
             "FEE": "fee"
         }
     }
@@ -191,6 +193,8 @@ def _scrub_log_message(msg: str) -> str:
 def extract_first_json_object(raw_text: str) -> str:
     text = raw_text.strip()
     m = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+# If Gemini wraps the JSON inside ```json ... ```, this regex grabs whatever is inside the backticks and throws away the markdown.
+
     if m:
         text = m.group(1).strip()
     start = text.find("{")
@@ -394,6 +398,7 @@ class FormatLearner:
         schema_json = json.dumps(FormatTemplate.model_json_schema(), indent=2)
         example_json = json.dumps(WORKED_EXAMPLE_TEMPLATE, indent=2)
         clean_features = {k: v for k, v in features.items() if k != "file_path"}
+# We want Gemini AI to learn the layout by analyzing the actual table headers and structure, not by taking shortcuts based on the filename
 
         return f"""You are a financial statement extraction engineer.
 Analyze the unseen PMS/AIF statement layout below and generate a declarative FormatTemplate JSON object for format_id '{safe_id}'.
@@ -428,18 +433,22 @@ STRICT RULES:
             return False, "Candidate template is empty or not a JSON object"
 
         # 1. PII Leak Check
+        # Scans the entire template JSON string for hardcoded PANs, phone numbers, or account numbers.
+        # A template MUST only contain extraction rules/regexes, NEVER raw investor data!
         tmpl_str = json.dumps(candidate_tmpl)
         for pat in GENERIC_DATA_LEAK_PATTERNS:
             if re.search(pat, tmpl_str):
                 return False, f"Template contains baked-in personal/monetary data matching '{pat}'"
 
         # 2. Pydantic Schema Validation
+        # Validates that all fields conform to the FormatTemplate schema (types, nested models, enums)
         try:
             validated_model = FormatTemplate.model_validate(candidate_tmpl)
         except Exception as e:
             return False, f"Template failed FormatTemplate schema validation: {str(e)}"
 
         # 3. Require non-empty extraction rules for holdings or summary
+        # Guards against AI returning a skeletal JSON with empty mapping dictionaries {}
         has_holdings_rules = bool(validated_model.holdings.mapping or validated_model.holdings.regex or validated_model.holdings.sections or validated_model.holdings.sheet)
         has_summary_rules = bool(validated_model.summary.mapping or validated_model.summary.section_header or validated_model.summary.sections or validated_model.summary.sheet)
         if not (has_holdings_rules and has_summary_rules):
@@ -455,11 +464,15 @@ STRICT RULES:
         3. Audits extracted records with FinancialValidator and requires zero critical issues.
         """
         schema_ok, schema_msg = self.validate_template_schema_and_pii(candidate_tmpl)
+#         Python takes the AI's regex rule ("CLIENT ID\\s*[:\\s]\\s*...").
+# Python runs that regex against the real PDF text.
+
         if not schema_ok:
             self.last_failure_issue = "learning_failed_invalid_template"
             return False, schema_msg
 
         try:
+            # Step A: Test-drive the candidate template against the real file on disk using StatementParser
             records = self.parser.parse(sample_file, candidate_tmpl)
             if not records:
                 self.last_failure_issue = "learning_failed_self_check"
@@ -468,18 +481,24 @@ STRICT RULES:
             self.last_failure_issue = "learning_failed_self_check"
             return False, f"Template rejected: parser crashed during self-check: {str(e)}"
 
+        # Step B: Assert that essential business identifiers were successfully extracted
         for rec in records:
             if not rec.statement.client_id:
                 self.last_failure_issue = "learning_failed_self_check"
                 return False, "Template rejected: self-check failed to extract non-empty client_id"
+# ai hallucinated a broken regex
+            
             if not rec.statement.period_end:
                 self.last_failure_issue = "learning_failed_self_check"
                 return False, "Template rejected: self-check failed to extract non-empty period_end"
+            # Sanity check: If portfolio reports positive closing value and zero cash, it must have holdings
             if not rec.holdings and rec.summary.closing > 0 and rec.summary.cash == 0:
                 self.last_failure_issue = "learning_failed_self_check"
                 return False, "Template rejected: self-check extracted zero holdings for non-zero corpus"
 
+        # Step C: Run all 14 mathematical and financial sanity audits via FinancialValidator
         status, issues = self.validator.validate(sample_file, records, template=candidate_tmpl)
+        # Filter out informational soft issues (like missing ISIN for unlisted holdings)
         blocking_issues = [i for i in issues if i not in self.validator.SOFT_ISSUES]
         if blocking_issues or status != "validated":
             self.last_failure_issue = "learning_failed_self_check"
@@ -491,6 +510,7 @@ STRICT RULES:
         import logging
         import time
 
+# .dotenv:
         env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
         if os.path.exists(env_file):
             try:
@@ -588,7 +608,8 @@ STRICT RULES:
 
         fprint_hash = hashlib.sha256(json.dumps(features.get("table_headers", []), sort_keys=True).encode()).hexdigest()[:16]
         # A failed sample must not blacklist future layouts from the provider.
-        # Suppression applies only to the exact structural fingerprint.
+        # Suppression applies only to the exact structural fingerprint.The system blacklists the pair:
+# ("aurum_capital", fprint_hash)
         persisted_failure = None
         if self.db_path:
             try:
