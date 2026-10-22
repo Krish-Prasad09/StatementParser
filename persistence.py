@@ -6,6 +6,14 @@ backed by PostgreSQL (Neon.tech / Supabase / AWS RDS).
 Ensures durable duplicate and revision tracking across restarts and powers the Streamlit dashboard.
 """
 
+# # 1. The SQL query template has placeholders:
+# sql = "INSERT INTO statement_artifacts VALUES (?, ?, ?, ?, ?)"
+
+# # 2. The database driver safely pairs each '?' with its value:
+# self._execute(cursor, sql, (file_path, digest, file_name, content, now_iso))
+
+
+
 import json
 import os
 import hashlib
@@ -347,6 +355,16 @@ class MockStatementStore:
                     r["diagnostic_message"] = getattr(result, "notes", "") or getattr(result, "diagnostic_message", "") or ""
                     break
 
+    def dismiss_statement(self, db_id: int, reason: str = "Dismissed by auditor") -> bool:
+        """Dismisses an unfixable or invalid quarantined statement from the review queue in-memory."""
+        with self._state.lock:
+            for r in self._state.statements:
+                if r.get("id") == db_id:
+                    r["status"] = "dismissed"
+                    r["diagnostic_message"] = reason
+                    return True
+            return False
+
     def save_email_event(
         self,
         message_id: str,
@@ -377,6 +395,8 @@ class MockStatementStore:
             self._state.email_events.append(row)
             return new_id
 
+# Before touching an email, a worker must first call claim_email_event() to ask the database:
+# "Can I have permission to process email <message_id>?"
     def claim_email_event(
         self,
         message_id: str,
@@ -408,6 +428,7 @@ class MockStatementStore:
                         if claimed_at.tzinfo is None:
                             claimed_at = claimed_at.replace(tzinfo=timezone.utc)
                         is_stale = (now - claimed_at).total_seconds() >= stale_after_seconds
+# If an email has been stuck in "started" for more than 10 minutes, the system assumes the previous worker died, breaks the dead lock, and allows a new worker to take over!                        
                     except (TypeError, ValueError):
                         is_stale = True
                     if not is_stale:
@@ -543,6 +564,10 @@ class MockStatementStore:
                 if r.get("failure_issue") != "learning_failed_llm_unavailable"
             ]
 
+    
+# Finds any prior failed attempts for this file and changes their status to:
+# "superseded_by_reprocess".
+# (This immediately removes them from the active Quarantine Queue!)
     def supersede_needs_review(self, file_path: str, exclude_id: Optional[int] = None):
         target_norm = os.path.normpath(file_path)
         with self._state.lock:
@@ -641,7 +666,8 @@ def _create_tables_pg(conn):
 
 class StatementStore:
     """Interface for saving, querying, and syncing parsed statements across restarts via PostgreSQL."""
-
+# Determines whether to connect to Cloud PostgreSQL (Neon) or run in In-Memory Mock Mode (for unit tests).
+# If it's a test (:memory:), it delegates all method calls to MockStatementStore.
     def __init__(self, db_path: Optional[str] = None):
         self.is_pg, self.target = _is_pg_target(db_path)
         self.db_path = self.target
@@ -673,6 +699,7 @@ class StatementStore:
 
         if result.file and os.path.isfile(result.file):
             if not self.save_statement_artifact(result.file):
+                # If the PDF could NOT be saved to the database, STOP EVERYTHING!
                 raise RuntimeError("Could not persist the source statement artifact")
 
         effective_hash = sha256_hash or result.sha256_hash or ""
@@ -707,7 +734,7 @@ class StatementStore:
                 diag_msg,
                 now_iso
             ))
-
+# save_result does return an int—it returns the new primary key ID of the inserted statement!
     def get_seen_hashes(self) -> Dict[str, str]:
         """Returns {sha256_hash: file_path} for all previously ingested non-duplicate files."""
         if self.is_mock:
@@ -822,6 +849,13 @@ class StatementStore:
 
         if not file_path or not os.path.isfile(file_path):
             return False
+# CREATE TABLE statement_artifacts (
+#     file_path TEXT PRIMARY KEY,
+#     sha256_hash TEXT NOT NULL,
+#     file_name TEXT NOT NULL,
+#     content BYTEA NOT NULL,       <-- Stores the actual binary PDF!
+#     created_at TEXT NOT NULL
+# );
         try:
             with open(file_path, "rb") as stream:
                 content = stream.read()
@@ -839,6 +873,7 @@ class StatementStore:
                         content = excluded.content,
                         created_at = excluded.created_at
                 """, (file_path, digest, file_name, content, now_iso))
+                # In PostgreSQL syntax, excluded.content refers to the new incoming value in the VALUES clause.
                 conn.commit()
             return True
         except Exception:
@@ -865,15 +900,16 @@ class StatementStore:
             return None
 
         digest = row["sha256_hash"]
-        suffix = Path(row["file_name"]).suffix
+        suffix = Path(row["file_name"]).suffix #pdf or xlsx
         restore_dir = os.path.join(tempfile.gettempdir(), "activv_statement_artifacts")
         os.makedirs(restore_dir, exist_ok=True)
         restored_path = os.path.join(restore_dir, f"{digest}{suffix}")
-        if not os.path.isfile(restored_path):
+        if not os.path.isfile(restored_path): 
+            # If the file was already restored to disk 5 seconds ago, it skips writing entirely!
             temp_path = f"{restored_path}.tmp"
             with open(temp_path, "wb") as stream:
-                stream.write(bytes(row["content"]))
-            os.replace(temp_path, restored_path)
+                stream.write(bytes(row["content"])) # Writes the Postgres bytes to disk
+            os.replace(temp_path, restored_path) # Atomically renames .tmp to .pdf
         return restored_path
 
     def save_template(self, template: Dict[str, Any]) -> None:
@@ -995,6 +1031,22 @@ class StatementStore:
                 db_id
             ))
             conn.commit()
+
+    def dismiss_statement(self, db_id: int, reason: str = "Dismissed by auditor") -> bool:
+        """Dismisses an unfixable or invalid quarantined statement from the review queue in database."""
+        if self.is_mock:
+            return self._mock.dismiss_statement(db_id, reason)
+
+        with closing(self._get_connection()) as conn:
+            cursor = conn.cursor()
+            self._execute(cursor, """
+                UPDATE statements
+                SET status = 'dismissed',
+                    diagnostic_message = ?
+                WHERE id = ?
+            """, (reason, db_id))
+            conn.commit()
+            return cursor.rowcount > 0
 
     def save_email_event(
         self,

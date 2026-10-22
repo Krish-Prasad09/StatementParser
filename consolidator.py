@@ -162,6 +162,9 @@ class PortfolioConsolidator:
                     })
 
         selected_records = list(by_account.values())
+# selected_records[0]: Kotak PMS (₹5 Crores)
+# selected_records[1]: ASK PMS (₹3 Crores)
+# selected_records[2]: ICICI AIF (₹2 Crores)        
         client_name = selected_records[0].statement.client_name
         period = target_period_end or selected_records[0].statement.period_end
 
@@ -231,7 +234,7 @@ class PortfolioConsolidator:
             "AIF Alternatives": round((total_aif_value / total_corpus * 100.0), 2) if total_corpus > 0 else 0.0,
             "Cash & Equivalents": round((total_cash / total_corpus * 100.0), 2) if total_corpus > 0 else 0.0
         }
-
+# Deduplicates and sorts the names of all AMCs that contributed to this report:
         participating = sorted(list(set(rec.statement.provider for rec in selected_records)))
 
         return ConsolidatedPortfolio(

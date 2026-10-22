@@ -16,7 +16,7 @@ from dateutil import parser as dateutil_parser
 def compute_sha256(file_path: str) -> str:
     """Computes SHA-256 hash of a file's raw content."""
     hasher = hashlib.sha256()
-    with open(file_path, "rb") as f:
+    with open(file_path, "rb") as f: #"rb" means read binary mode,as f stores the opened file object in the variable f.
         while chunk := f.read(65536):
             hasher.update(chunk)
     return hasher.hexdigest()
@@ -132,7 +132,7 @@ def parse_date(date_str: str, dayfirst: bool = True) -> Optional[str]:
                 except ValueError:
                     continue
         try:
-            dt = dateutil_parser.parse(s, dayfirst=False)
+            dt = dateutil_parser.parse(s, dayfirst=False) #"04/05/2026" would generally be interpreted as April 5, 2026, rather than May 4.
             return dt.strftime("%Y-%m-%d")
         except Exception:
             pass

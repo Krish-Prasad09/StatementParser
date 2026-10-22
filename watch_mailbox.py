@@ -391,6 +391,7 @@ def reprocess_review_queue(
     db_path: Optional[str] = None,
     password: Optional[str] = None,
     templates_dir: str = "templates",
+    target_id: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """
     Re-processes statements quarantined in 'needs_review' from PostgreSQL persistence store
@@ -398,16 +399,29 @@ def reprocess_review_queue(
     """
     _load_local_env()
     store = StatementStore(db_path=db_path)
-    if hasattr(store, "clear_failed_learnings"):
-        store.clear_failed_learnings()
+    review_records = store.get_needs_review()
+    if target_id is not None:
+        target_rec = store.get_by_id(target_id)
+        if target_rec:
+            review_records = [target_rec]
+        else:
+            review_records = [r for r in review_records if r.get("id") == target_id]
+
+        if review_records and review_records[0].get("format_id"):
+            store.remove_failed_learning(review_records[0].get("format_id"))
+        else:
+            if hasattr(store, "clear_transient_failed_learnings"):
+                store.clear_transient_failed_learnings()
     else:
-        store.clear_transient_failed_learnings()
+        if hasattr(store, "clear_failed_learnings"):
+            store.clear_failed_learnings()
+        else:
+            store.clear_transient_failed_learnings()
 
     pipeline = ProcessingPipeline(templates_dir=templates_dir, db_path=db_path, store=store)
     if hasattr(pipeline.learner, "clear_failed_learning"):
         pipeline.learner.clear_failed_learning()
-    review_records = store.get_needs_review()
-    print(f"Found {len(review_records)} statement(s) quarantined in needs_review.")
+    print(f"Found {len(review_records)} statement(s) quarantined in needs_review to process.")
 
     updated = []
     seen_files = set()
@@ -434,6 +448,8 @@ def reprocess_review_queue(
         print(f"Re-processing (DB ID {rec_id}): {file_path} (previous issues: {rec.get('issues_json')})")
         # Ensure the pipeline doesn't hold stale in-memory state for this file
         rel_name = file_path.replace("sample_data/", "").replace("sample_data\\", "").replace("\\", "/")
+
+        #This wipes the old cached failure from RAM so the file is evaluated with fresh eyes.
         pipeline.processed_history.pop(rel_name, None)
         pipeline.processed_history.pop(raw_file_path, None)
 
@@ -444,12 +460,15 @@ def reprocess_review_queue(
         if res.status == "needs_review" and rec.get("record_json"):
             try:
                 from models import ExtractionResult
+#It takes the previously extracted numbers from rec["record_json"], tests them against the newly approved v2 template, sees that all mathematical checks pass, and promotes the statement directly to validated!                
                 prev_res = ExtractionResult.model_validate_json(rec["record_json"])
                 if prev_res.statements:
                     base_fmt = prev_res.format_id or rec.get("format_id", "")
                     v2_fmt = base_fmt if base_fmt.endswith("_v2") else f"{base_fmt}_v2"
                     active_tmpl = pipeline.fingerprinter.templates.get(v2_fmt) or pipeline.fingerprinter.templates.get(base_fmt)
                     if active_tmpl and active_tmpl.get("approved"):
+                        
+  # Re-run validator with is_drift=False against the newly approved template!                        
                         v_status, v_issues = pipeline.validator.validate(file_path, prev_res.statements, is_drift=False, template=active_tmpl)
                         if v_status == "validated" and not v_issues:
                             prev_res.status = "validated"
@@ -485,6 +504,7 @@ def main():
     parser.add_argument("--once", action="store_true", help="Run a single poll iteration and exit")
     parser.add_argument("--interval", type=int, default=60, help="Polling interval in seconds")
     parser.add_argument("--reprocess-review", action="store_true", help="Re-process quarantined statements in needs_review with candidate password(s)")
+    parser.add_argument("--id", dest="target_id", type=int, default=None, help="Specific statement DB ID to reprocess")
     parser.add_argument("--password", help="Candidate password to unlock encrypted statements")
     parser.add_argument("--host", help="IMAP server hostname (e.g. imap.gmail.com)")
     parser.add_argument("--user", help="IMAP username / email address")
@@ -496,13 +516,13 @@ def main():
     # Load local credentials before offline/review modes as well as live polling.
     _load_local_env()
 
-    # Reprocess review queue mode
+    # Reprocess review queue mode. Pulls all quarantined statements from PostgreSQL, tries candidate passwords to decrypt them, re-validates them against approved templates, and exits.
     if args.reprocess_review:
-        results = reprocess_review_queue(db_path=args.db, password=args.password)
+        results = reprocess_review_queue(db_path=args.db, password=args.password, target_id=args.target_id)
         print(f"\nCompleted re-processing review queue: {len(results)} statement(s) evaluated.")
         return
 
-    # Offline test mode
+    # Offline test mode Allows developers to test email parsing completely offline on a saved .eml file without needing an internet connection or real Gmail credentials.
     if args.test_eml:
         if not os.path.exists(args.test_eml):
             print(f"Error: EML file '{args.test_eml}' not found.")

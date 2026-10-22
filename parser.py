@@ -498,7 +498,9 @@ class StatementParser:
                     continue
                 # Normalize top row (header) by stripping extra whitespace and converting to lowercase
                 header = [re.sub(r"\s+", " ", str(c).strip().lower()) for c in t[0] if c]
+                # header = ["account name", "pan", "transaction date"]
                 hdr_str = " ".join(header)
+                # "account name pan transaction date"
 
                 is_summary_table = False
                 # Table qualifies as summary if at least 2 mapped template column names match its headers
@@ -584,6 +586,13 @@ class StatementParser:
 
     def _extract_table_holdings(self, pages: List[Any], template: Dict[str, Any], summary: Optional[Summary] = None) -> List[Holding]:
         holdings = []
+# template = {
+#     "holdings": {
+#         "supports_short": True,
+#         "mapping": {"quantity": "Units",
+    # "price": "Market Price"}
+#     }
+# }        
         holdings_cfg = template.get("holdings", {})
         supports_short = holdings_cfg.get("supports_short", False)
         is_unlisted = holdings_cfg.get("is_unlisted", False)
@@ -591,6 +600,7 @@ class StatementParser:
         current_side = "long"
 
         mapped_labels = [v for v in h_map.values() if v]
+        # mapped_labels = ["Units", "Market Price"]
         checked_missing_cols = False
 
         for page in pages:
@@ -785,7 +795,7 @@ class StatementParser:
                                 elif matched_field == "weight_pct" and num is not None:
                                     weight_pct = num
                                 continue
-
+     
                             # 2. Fallback synonyms only when template has no holdings mapping
                             if not h_map:
                                 if any(k in c_name for k in ["security", "scrip", "company", "portfolio company"]):
@@ -1044,6 +1054,7 @@ class StatementParser:
         for line in full_text.split("\n"):
             line_str = line.strip()
             for field_key, label_str in s_map.items():
+                # line_str = "Market Value: 50,000"
                 if label_str and label_str.lower() in line_str.lower():
                     val_part = line_str.split(":")[-1] if ":" in line_str else line_str[line_str.lower().find(label_str.lower()) + len(label_str):]
                     num = clean_number(val_part)
@@ -1084,6 +1095,7 @@ class StatementParser:
                 continue
             if in_holdings and any(line_str.lower().startswith(em.lower()) or em.lower() in line_str.lower() for em in stop_markers):
                 in_holdings = False
+    #  switch is OFF. No risk of accidentally adding a transaction or bank fee as a stock!           
                 continue
             if in_holdings:
                 m = re.match(h_regex, line_str)
@@ -1125,6 +1137,7 @@ class StatementParser:
 
         # Build longest-match alternation from template type_map keys
         sorted_keys = sorted(type_map.keys(), key=len, reverse=True)
+        
         escaped_keys = [re.sub(r"\\\s+", r"\\s+", re.escape(k)) for k in sorted_keys]
         type_tokens_pat = r"(?:" + "|".join(escaped_keys) + r")" if escaped_keys else r"(?:BUY|SELL|PURCHASE|SALE|DIVIDEND|FEE|INFLOW|OUTFLOW)"
 
@@ -1135,7 +1148,7 @@ class StatementParser:
             primary_tx_regex = r"^([0-9\/\-]{10})\s+(" + type_tokens_pat + r")\s+(.+?)\s+([0-9,.\-]+)\s+([0-9,.\-]+)\s+([\-0-9,.]+)\s*$"
 
         fallback_tx_regex = r"^([0-9\/\-]{10})\s+([A-Za-z0-9_]+(?:\s+[A-Za-z0-9_]+)?)\s+(.+?)\s+([0-9,.\-]+)\s+([0-9,.\-]+)\s+([\-0-9,.]+)\s*$"
-
+# The fallback regex allows 1 or 2 generic words in the second column so the transaction is still extracted and tagged as "other" rather than silently dropped!
         transactions = []
         in_tx = False
         for line in full_text.split("\n"):
@@ -1162,6 +1175,7 @@ class StatementParser:
 
                     if std_type in ["fee", "inflow", "outflow"]:
                         sec_name = None
+# ? When a client deposits money (inflow) or the AMC charges an advisory fee (fee), no shares were traded.                       
                     elif std_type == "dividend":
                         sec_name = re.sub(r"dividend\s+credit.*", "", sec_name, flags=re.IGNORECASE).strip()
                         isin = resolve_isin_from_holdings(sec_name, holdings)
@@ -1324,6 +1338,10 @@ class StatementParser:
 
                     std_type = "other"
                     raw_type = narr.split("-")[0].strip() if "-" in narr else narr.strip()
+# : Pulls the text before the first hyphen as a preliminary label (e.g., "Dividend received - Reliance..." 
+# →
+# → "Dividend received").
+
                     sec_name = None
                     isin = None
                     qty = None
@@ -1654,6 +1672,9 @@ class StatementParser:
         type_map = {k.upper(): v for k, v in tx_cfg.get("type_map", {
             "INFLOW": "inflow", "OUTFLOW": "outflow", "BUY": "buy", "SELL": "sell", "DIVIDEND": "dividend", "FEE": "fee"
         }).items()}
+
+# sections tells the parser which table it is looking at right now.
+# mapping tells the parser how to translate the columns inside that table.
 
         for row in reader:
             if not row or not any(row):

@@ -624,10 +624,46 @@ elif view_mode == "⚠️ Quarantined Review Queue":
             if has_llm_outage:
                 st.info("💡 **Notice:** One or more statements were quarantined because the Gemini server was temporarily down / unavailable (HTTP 503 / network timeout). Click **🔄 Reprocess Review Queue** below to re-run LLM learning now that the server is online.")
 
-            col_rq1, _ = st.columns([2, 2])
+            # Targeted item selector & actions
+            quarantined_options = {
+                row["id"]: f"DB ID {row['id']} — {os.path.basename(row['file_path'])} [{', '.join(json.loads(row.get('issues_json') or '[]')) or 'needs_review'}]"
+                for row in db_review
+            }
+
+            selected_id = st.selectbox(
+                "Select Quarantined Statement to Act On:",
+                options=list(quarantined_options.keys()),
+                format_func=lambda x: quarantined_options[x],
+                key="sb_quarantined_item"
+            )
+
+            col_rq1, col_rq2, col_rq3 = st.columns([2, 2, 2])
             with col_rq1:
-                if st.button("🔄 Reprocess Review Queue (Retry LLM & Passwords)", key="btn_reprocess_queue_top"):
-                    with st.spinner("Re-evaluating quarantined statements with active models and templates..."):
+                if st.button("🔄 Reprocess Selected", key="btn_reprocess_selected"):
+                    with st.spinner(f"Re-evaluating quarantined statement DB ID {selected_id}..."):
+                        reprocessed = reprocess_review_queue(target_id=selected_id)
+                        pipeline._load_templates()
+                        store.sync_to_pipeline(pipeline)
+                    if reprocessed:
+                        res_item = reprocessed[0]
+                        if res_item.get("status") == "validated":
+                            st.success(f"🎉 Statement DB ID {selected_id} successfully validated and promoted to portfolio!")
+                        elif any("password" in str(iss).lower() for iss in res_item.get("issues", [])):
+                            st.info(f"ℹ️ Statement DB ID {selected_id} requires a password. Enter client password in the Unlock panel below.")
+                        else:
+                            st.warning(f"Statement DB ID {selected_id} reprocessed, but still needs review: {', '.join(res_item.get('issues', []))}")
+                    st.rerun()
+
+            with col_rq2:
+                if st.button("🗑️ Dismiss / Remove from Queue", key="btn_dismiss_selected"):
+                    store.dismiss_statement(selected_id, reason="Dismissed by operator from review queue")
+                    st.session_state.pop("sb_quarantined_item", None)
+                    st.info(f"Statement DB ID {selected_id} dismissed and removed from quarantine.")
+                    st.rerun()
+
+            with col_rq3:
+                if st.button("🔁 Reprocess Entire Queue (All)", key="btn_reprocess_queue_top"):
+                    with st.spinner("Re-evaluating all quarantined statements with active models and templates..."):
                         reprocessed = reprocess_review_queue()
                         pipeline._load_templates()
                         store.sync_to_pipeline(pipeline)
