@@ -399,20 +399,23 @@ def reprocess_review_queue(
     """
     _load_local_env()
     store = StatementStore(db_path=db_path)
-    review_records = store.get_needs_review()
+    target_fmt = None
     if target_id is not None:
         target_rec = store.get_by_id(target_id)
-        if target_rec:
-            review_records = [target_rec]
-        else:
-            review_records = [r for r in review_records if r.get("id") == target_id]
+        if not target_rec or target_rec.get("status") != "needs_review":
+            status_found = target_rec.get("status") if target_rec else "not_found"
+            print(f"[WARN] Statement DB ID {target_id} is not in 'needs_review' status (found status: '{status_found}'). Aborting reprocess.")
+            return []
 
-        if review_records and review_records[0].get("format_id"):
-            store.remove_failed_learning(review_records[0].get("format_id"))
+        review_records = [target_rec]
+        target_fmt = target_rec.get("format_id")
+        if target_fmt and target_fmt != "none":
+            store.remove_failed_learning(target_fmt)
         else:
             if hasattr(store, "clear_transient_failed_learnings"):
                 store.clear_transient_failed_learnings()
     else:
+        review_records = store.get_needs_review()
         if hasattr(store, "clear_failed_learnings"):
             store.clear_failed_learnings()
         else:
@@ -420,7 +423,11 @@ def reprocess_review_queue(
 
     pipeline = ProcessingPipeline(templates_dir=templates_dir, db_path=db_path, store=store)
     if hasattr(pipeline.learner, "clear_failed_learning"):
-        pipeline.learner.clear_failed_learning()
+        if target_id is not None:
+            if target_fmt and target_fmt != "none":
+                pipeline.learner.clear_failed_learning(format_id=target_fmt)
+        else:
+            pipeline.learner.clear_failed_learning()
     print(f"Found {len(review_records)} statement(s) quarantined in needs_review to process.")
 
     updated = []

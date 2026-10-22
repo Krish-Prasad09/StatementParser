@@ -193,7 +193,7 @@ class MockStatementStore:
             return {
                 row["sha256_hash"]: row["file_path"]
                 for row in self._state.statements
-                if row.get("status") != "duplicate" and row.get("sha256_hash")
+                if row.get("status") in ("validated", "not_a_statement", "dismissed") and row.get("sha256_hash")
             }
 
     def get_seen_revisions(self) -> Dict[Tuple[str, str, str], str]:
@@ -233,9 +233,12 @@ class MockStatementStore:
                     continue
                 fpath = row.get("file_path")
                 rec_json = row.get("record_json")
-                if fpath and rec_json and fpath not in pipeline.processed_history:
+                if fpath and rec_json:
                     try:
-                        pipeline.processed_history[fpath] = ExtractionResult.model_validate_json(rec_json)
+                        res_obj = ExtractionResult.model_validate_json(rec_json)
+                        pipeline.processed_history[fpath] = res_obj
+                        rel_name = fpath.replace("sample_data/", "").replace("sample_data\\", "").replace("\\", "/")
+                        pipeline.processed_history[rel_name] = res_obj
                     except Exception:
                         pass
 
@@ -359,9 +362,32 @@ class MockStatementStore:
         """Dismisses an unfixable or invalid quarantined statement from the review queue in-memory."""
         with self._state.lock:
             for r in self._state.statements:
-                if r.get("id") == db_id:
+                if r.get("id") == db_id and r.get("status") == "needs_review":
                     r["status"] = "dismissed"
                     r["diagnostic_message"] = reason
+                    r["issues_json"] = json.dumps(["dismissed_by_auditor"])
+                    if r.get("record_json"):
+                        try:
+                            data = json.loads(r["record_json"])
+                            data["status"] = "dismissed"
+                            data["issues"] = ["dismissed_by_auditor"]
+                            data["notes"] = reason
+                            data["diagnostic_message"] = reason
+                            r["record_json"] = json.dumps(data)
+                        except Exception:
+                            pass
+                    else:
+                        r["record_json"] = json.dumps({
+                            "file": r.get("file_path") or "",
+                            "format_id": r.get("format_id") or "none",
+                            "status": "dismissed",
+                            "issues": ["dismissed_by_auditor"],
+                            "statements": [],
+                            "notes": reason,
+                            "diagnostic_message": reason,
+                            "llm_calls_made": 0,
+                            "sha256_hash": r.get("sha256_hash") or ""
+                        })
                     return True
             return False
 
@@ -745,7 +771,7 @@ class StatementStore:
             cursor = conn.cursor()
             self._execute(
                 cursor,
-                "SELECT sha256_hash, file_path FROM statements WHERE sha256_hash != '' AND status IN ('validated', 'not_a_statement') ORDER BY id ASC"
+                "SELECT sha256_hash, file_path FROM statements WHERE sha256_hash != '' AND status IN ('validated', 'not_a_statement', 'dismissed') ORDER BY id ASC"
             )
             for row in cursor.fetchall():
                 h = row["sha256_hash"]
@@ -810,9 +836,12 @@ class StatementStore:
             for row in cursor.fetchall():
                 fpath = row["file_path"]
                 rec_json = row["record_json"]
-                if fpath and rec_json and fpath not in pipeline.processed_history:
+                if fpath and rec_json:
                     try:
-                        pipeline.processed_history[fpath] = ExtractionResult.model_validate_json(rec_json)
+                        res_obj = ExtractionResult.model_validate_json(rec_json)
+                        pipeline.processed_history[fpath] = res_obj
+                        rel_name = fpath.replace("sample_data/", "").replace("sample_data\\", "").replace("\\", "/")
+                        pipeline.processed_history[rel_name] = res_obj
                     except Exception:
                         pass
 
@@ -1039,12 +1068,48 @@ class StatementStore:
 
         with closing(self._get_connection()) as conn:
             cursor = conn.cursor()
+            self._execute(
+                cursor,
+                "SELECT file_path, sha256_hash, format_id, record_json FROM statements WHERE id = ? AND status = 'needs_review'",
+                (db_id,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return False
+
+            updated_record_json = row.get("record_json")
+            if updated_record_json:
+                try:
+                    data = json.loads(updated_record_json)
+                    data["status"] = "dismissed"
+                    data["issues"] = ["dismissed_by_auditor"]
+                    data["notes"] = reason
+                    data["diagnostic_message"] = reason
+                    updated_record_json = json.dumps(data)
+                except Exception:
+                    pass
+            else:
+                updated_record_json = json.dumps({
+                    "file": row.get("file_path") or "",
+                    "format_id": row.get("format_id") or "none",
+                    "status": "dismissed",
+                    "issues": ["dismissed_by_auditor"],
+                    "statements": [],
+                    "notes": reason,
+                    "diagnostic_message": reason,
+                    "llm_calls_made": 0,
+                    "sha256_hash": row.get("sha256_hash") or ""
+                })
+
+            issues_str = json.dumps(["dismissed_by_auditor"])
             self._execute(cursor, """
                 UPDATE statements
                 SET status = 'dismissed',
+                    issues_json = ?,
+                    record_json = ?,
                     diagnostic_message = ?
-                WHERE id = ?
-            """, (reason, db_id))
+                WHERE id = ? AND status = 'needs_review'
+            """, (issues_str, updated_record_json, reason, db_id))
             conn.commit()
             return cursor.rowcount > 0
 

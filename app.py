@@ -656,9 +656,13 @@ elif view_mode == "⚠️ Quarantined Review Queue":
 
             with col_rq2:
                 if st.button("🗑️ Dismiss / Remove from Queue", key="btn_dismiss_selected"):
-                    store.dismiss_statement(selected_id, reason="Dismissed by operator from review queue")
-                    st.session_state.pop("sb_quarantined_item", None)
-                    st.info(f"Statement DB ID {selected_id} dismissed and removed from quarantine.")
+                    dismissed = store.dismiss_statement(selected_id, reason="Dismissed by operator from review queue")
+                    if dismissed:
+                        store.sync_to_pipeline(pipeline)
+                        st.session_state.pop("sb_quarantined_item", None)
+                        st.info(f"Statement DB ID {selected_id} dismissed and removed from quarantine.")
+                    else:
+                        st.warning(f"Could not dismiss statement DB ID {selected_id} (it may have already been resolved or is not in review).")
                     st.rerun()
 
             with col_rq3:
