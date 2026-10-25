@@ -6,11 +6,10 @@ Operational Views:
 1. 📬 Mailbox Ingestion & Operations: Real-time email gatekeeper, IMAP poller & PostgreSQL audit trail
 2. 💼 Client Portfolio Consolidation: Multi-custodian wealth consolidation by PAN & ISIN
 3. ⚠️ Quarantined Review Queue: Financial safety gate exception queue & audit architecture
-4. 📁 Direct Statement Upload: Manual statement and email ingestion workbench
+4. 📤 Live Email Dispatch & Ingest: Live statement email dispatcher and mailbox ingestion
 """
 
 import os
-import csv
 import json
 import tempfile
 import pandas as pd
@@ -46,7 +45,6 @@ except Exception:
 
 from pipeline import ProcessingPipeline
 from consolidator import PortfolioConsolidator
-from ingestion import IngestionEngine
 from models import ExtractionResult
 from persistence import StatementStore
 from watch_mailbox import safe_poll_inbox, reprocess_review_queue
@@ -63,40 +61,6 @@ if "mailbox_polled_at_startup" not in st.session_state:
     except Exception as e:
         st.session_state["last_poll_result"] = {"status": "error", "count": 0, "message": str(e)}
 
-
-# Custom Styling
-st.markdown("""
-<style>
-    .metric-card {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 16px;
-        border-left: 5px solid #1f77b4;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    .badge-validated {
-        background-color: #d4edda;
-        color: #155724;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-weight: bold;
-    }
-    .badge-review {
-        background-color: #fff3cd;
-        color: #856404;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-weight: bold;
-    }
-    .badge-dup {
-        background-color: #cce5ff;
-        color: #004085;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-weight: bold;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 
 @st.cache_resource
@@ -118,68 +82,6 @@ def get_consolidator():
 
 pipeline = get_pipeline()
 consolidator = get_consolidator()
-ingestion = IngestionEngine()
-
-
-def render_statement_view(stmt, account_idx=1):
-    meta = stmt.statement
-    st.markdown(f"#### Account #{account_idx}: {meta.client_name or 'N/A'} ({meta.provider})")
-
-    # Metadata Cards
-    m1, m2, m3, m4, m5 = st.columns(5)
-    m1.markdown(f"**Client ID:** `{meta.client_id or 'N/A'}`")
-    m2.markdown(f"**PAN:** `{meta.pan or 'N/A'}`")
-    m3.markdown(f"**Period:** `{meta.period_start} to {meta.period_end}`")
-    m4.markdown(f"**Strategy:** `{meta.strategy or 'N/A'}`")
-    m5.markdown(f"**Currency:** `{meta.currency}`")
-
-    # Summary Balances
-    st.markdown("##### Summary Balances")
-    s = stmt.summary
-    s1, s2, s3, s4, s5, s6, s7 = st.columns(7)
-    s1.metric("Opening", f"{s.opening:,.2f}")
-    s2.metric("Inflows", f"{s.inflow:,.2f}")
-    s3.metric("Outflows", f"{s.outflow:,.2f}")
-    s4.metric("Net Gain", f"{s.gain:,.2f}" if s.gain is not None else "N/A")
-    s5.metric("Fees", f"{s.fee:,.2f}")
-    s6.metric("Cash Balance", f"{s.cash:,.2f}")
-    s7.metric("Closing NAV", f"{s.closing:,.2f}")
-
-    # Holdings Table
-    if stmt.holdings:
-        st.markdown("##### Portfolio Holdings")
-        h_rows = []
-        for h in stmt.holdings:
-            h_rows.append({
-                "Security": str(h.name),
-                "ISIN": str(h.isin or "Unlisted / None"),
-                "Quantity": f"{h.quantity:,.2f}",
-                "Avg Cost": f"{h.avg_cost:,.2f}" if h.avg_cost is not None else "-",
-                "Price": f"{h.price:,.2f}" if h.price is not None else "-",
-                "Market Value": f"{h.market_value:,.2f}",
-                "Weight (%)": f"{h.weight_pct:.2f}%" if h.weight_pct is not None else "-"
-            })
-        st.dataframe(pd.DataFrame(h_rows))
-
-    # Transactions Table
-    if stmt.transactions:
-        st.markdown("##### Transactions Ledger")
-        t_rows = []
-        for t in stmt.transactions:
-            t_rows.append({
-                "Date": str(t.date),
-                "Type": str(t.type),
-                "Security": str(t.security or "-"),
-                "ISIN": str(t.isin or "-"),
-                "Quantity": f"{t.quantity:,.2f}" if t.quantity is not None else "-",
-                "Price": f"{t.price:,.2f}" if t.price is not None else "-",
-                "Amount": f"{t.amount:,.2f}"
-            })
-        st.dataframe(pd.DataFrame(t_rows))
-
-    # Raw JSON toggle
-    with st.expander("View Raw Extracted JSON"):
-        st.json(stmt.model_dump())
 
 
 # Sidebar
